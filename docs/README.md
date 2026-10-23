@@ -1,0 +1,14 @@
+# Documentation
+
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+| Document | Purpose |
+| --- | --- |
+| [Architecture](architecture.md) | Components, data flow and policy boundaries |
+| [Setup](setup.md) | Offline development and remote prerequisites |
+| [Local model](local_model.md) | Isolated GPU model setup and measured integration checks |
+| [External Writer](writer_api.md) | Free-tier candidates and independent API configuration |
+| [Validation](validation.md) | Checked behavior and remaining work |
+| [Literature](literature.md) | Primary papers and attribution |
+
+Private research notes remain outside the checkout. Update these documents alongside code. Directory READMEs are bilingual; the detailed technical documents are currently in English.

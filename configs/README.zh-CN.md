@@ -1,0 +1,20 @@
+# 配置
+
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+`smoke.json` 用于标准库小环境；`local_qwen3_1_7b.json` 固定本地 GPU 模型、tokenizer 和 SFT 参数。ScienceWorld 与 ALFWorld 文件是尚待补齐的远程模板。
+
+```text
+python run_memturn.py check-profile --profile configs/scienceworld.example.json
+```
+
+各角色的服务地址与密钥从环境变量读取，密钥不写入 JSON。远程模板需要验证模型版本、LoRA 层、任务清单和证据校验器，初始到达策略会等待后台完成。
+
+预算定义见 `src/memturn/config.py`。容量返还 token 比例固定为 0.5；`cold_fraction` 先确定冷记忆范围，再由 `region_token_cap` 限制实际输入。返还条数不单独设置。
+
+本地 8,000 token 是暂定的接入预算，不是由显存推算或实验调优得到。每次检索最多
+返回 512 token，来源/样本另有 32 MiB 上限。短 GPU 试跑尚未覆盖容量触顶，
+详见 [预算依据](../docs/local_model.md)。
+
+`writer.groq.example.json` 和 `writer.gemini.example.json` 为本地任务模型配置独立的
+HTTP Writer。密钥只从指定的进程环境变量读取；接口尚未实际调用，见 [接入说明](../docs/writer_api.md)。

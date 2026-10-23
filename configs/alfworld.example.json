@@ -1,0 +1,54 @@
+{
+  "operator_kind": "prompted_region_rewriter_NOT_trained_AutoDreamer_checkpoint",
+  "arrival_policy": "wait_for_background",
+  "runtime": {},
+  "tokenizer_model": "Qwen/Qwen3.5-9B",
+  "tokenizer_revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
+  "verification_factory": "TO_IMPLEMENT_BENCHMARK_VERIFIER:Verifier",
+  "models": {
+    "task": {
+      "model": "Qwen/Qwen3.5-9B",
+      "base_url_env": "MEMTURN_TASK_BASE_URL",
+      "api_key_env": "MEMTURN_TASK_API_KEY",
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    },
+    "writer": {
+      "model": "Qwen/Qwen3-14B",
+      "base_url_env": "MEMTURN_WRITER_BASE_URL",
+      "api_key_env": "MEMTURN_WRITER_API_KEY",
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    },
+    "consolidator": {
+      "model": "Qwen/Qwen3-14B",
+      "base_url_env": "MEMTURN_CONSOLIDATOR_BASE_URL",
+      "api_key_env": "MEMTURN_CONSOLIDATOR_API_KEY",
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    }
+  },
+  "environment": {
+    "kind": "alfworld",
+    "task_manifest": "TO_SET_EXPLICIT_TASK_MANIFEST",
+    "config_path": "TO_SET_ALFWORLD_YAML",
+    "split": "eval_out_of_distribution"
+  },
+  "training": {
+    "enabled": true,
+    "model_id": "Qwen/Qwen3.5-9B",
+    "model_revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
+    "target_modules": [],
+    "loader_class": "AutoModelForMultimodalLM",
+    "server_adapter_root": "TO_SET_SHARED_ADAPTER_DIRECTORY",
+    "rank": 8,
+    "alpha": 16,
+    "learning_rate": 0.00005,
+    "steps": 8,
+    "max_length": 2048,
+    "device": "cuda:0"
+  }
+}

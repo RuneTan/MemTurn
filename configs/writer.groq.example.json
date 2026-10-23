@@ -1,0 +1,9 @@
+{
+  "base_url": "https://api.groq.com/openai/v1",
+  "model": "openai/gpt-oss-120b",
+  "api_key_env": "MEMTURN_WRITER_API_KEY",
+  "timeout_seconds": 60,
+  "max_tokens": 2048,
+  "temperature": 0,
+  "response_format": {"type": "json_object"}
+}

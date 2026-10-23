@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "memturn"
+version = "0.1.0"
+description = "Bounded memory consolidation and selective internalization for continual agents"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+train = ["torch>=2.6", "transformers>=5.2,<6", "peft>=0.19,<0.22", "accelerate>=1.8,<2"]
+scienceworld = ["scienceworld"]
+alfworld = ["alfworld", "PyYAML"]
+
+[project.scripts]
+memturn = "memturn.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
