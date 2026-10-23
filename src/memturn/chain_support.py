@@ -92,7 +92,7 @@ def grouped_tasks(count, group_size=20, seed=42):
 
 def probe_actions(backend, store, policy, counter, config, checkpoint):
     """Paired first actions on fixed held-out objects; no feedback or state writes."""
-    from .contracts import Task
+    from .contracts import RetrievalResult, Task
     from .memory.retrieval import Retriever
     from .tasks.toy import ToyEnvironment, PREPARE
     rows = []
@@ -105,7 +105,7 @@ def probe_actions(backend, store, policy, counter, config, checkpoint):
                 task = Task(f"heldout_{condition_index}_{sample}", family, version,
                             1000000 + condition_index * 10 + sample)
                 observation = env.reset(task)
-                retrieved = retriever.search(view.memories, observation)
+                retrieved = retriever.search(view.memories, observation, applicability=env.retrieval_scope(observation))
                 for label, model_version, memories in (
                     ("base_no_memory", "base", ()),
                     ("adapter_no_memory", view.model_version, ()),
@@ -113,7 +113,9 @@ def probe_actions(backend, store, policy, counter, config, checkpoint):
                     ("adapter_current_memory", view.model_version, retrieved)):
                     error = None
                     try:
-                        action = policy.act(observation, memories, model_version)
+                        remaining = config.max_extra_searches if label.endswith("current_memory") else 0
+                        action = policy.act(observation, memories, model_version,
+                                            (RetrievalResult(None, memories, remaining),))
                     except Exception as exception:
                         action, error = None, type(exception).__name__
                     rows.append({"checkpoint": checkpoint, "condition": condition, "sample": sample,

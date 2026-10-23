@@ -2,6 +2,11 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+Retrieval calls and results have a separate policy transcript. Search errors are
+returned to the policy and never sent to the environment as fabricated commands.
+Environment evidence step indices remain unchanged. No-memory evaluation disables
+both initial retrieval and additional searches.
+
 `Runtime.run_task` pins a model version and bounded memory view, performs initial and bounded additional retrieval, and records task outcomes. One bounded worker handles writing, consolidation and optional training.
 
 Memory replacement commits first. A later publication transaction updates the model pointer and removes only the selected memory version. Failed training preserves the external bank. Capacity jobs do not train.

@@ -2,6 +2,9 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+最新记录：[训练与检索修复](learning_retrieval_repairs_2026-10-24.zh-CN.md)，包括来源调查、
+定向修复、本地检查与尚未解决的学习效果。
+
 | 文档 | 用途 |
 | --- | --- |
 | [架构](architecture.md) | 组件、数据流与策略边界 |

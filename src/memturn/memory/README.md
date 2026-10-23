@@ -9,3 +9,7 @@
 `retrieval.py` is a replaceable lexical retriever. `consolidation.py` contains deterministic development operators, separate from model-based operators.
 
 Text, sources/samples, metadata, snapshots and database pages have separate limits. These limits do not bound complete process RSS or remote caches. Audits are not retrievable memory.
+
+An environment may provide an explicit public applicability scope to retrieval.
+The toy adapter excludes incompatible family/version rules; unscoped environments
+keep lexical retrieval. This is not a general semantic relevance solution.

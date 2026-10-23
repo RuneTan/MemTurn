@@ -2,7 +2,9 @@
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from pathlib import Path
+import random
 import time
 import uuid
 
@@ -26,6 +28,19 @@ def supervised_tokens(tokenizer, prompt, target, max_length, memories=(), histor
     return full_ids, [-100] * len(prefix_ids) + full_ids[len(prefix_ids):]
 
 
+def training_schedule(size, steps, accumulation, seed):
+    """Cover every sample before repeats, within the requested optimizer steps."""
+    if min(size, steps, accumulation) <= 0:
+        raise ValueError("training schedule requires positive sizes")
+    effective = max(accumulation, math.ceil(size / steps))
+    order, rng = [], random.Random(seed)
+    while len(order) < steps * effective:
+        epoch = list(range(size))
+        rng.shuffle(epoch)
+        order.extend(epoch)
+    return tuple(tuple(order[i:i + effective]) for i in range(0, steps * effective, effective))
+
+
 @dataclass(frozen=True)
 class SFTConfig:
     model_id: str
@@ -42,6 +57,7 @@ class SFTConfig:
     max_length: int = 2048
     max_training_tokens: int = 16384
     max_seconds: float = 1200.0
+    seed: int = 42
 
     def __post_init__(self):
         for name in ("rank", "alpha", "learning_rate", "steps", "gradient_accumulation",
@@ -67,12 +83,13 @@ class HuggingFaceLearner:
         cfg, started = self.config, time.monotonic()
         tokenizer = transformers.AutoTokenizer.from_pretrained(cfg.model_id, revision=cfg.model_revision)
         batches, tokens = [], 0
+        examples = tuple(examples)
         for example in examples:
             history = (histories or {}).get((example.task_id, example.step), ())
             ids, labels = supervised_tokens(tokenizer, example.prompt, example.target, cfg.max_length,
                                            memory_context, history)
             if tokens + len(ids) > cfg.max_training_tokens:
-                break
+                raise ValueError("training token budget cannot cover all selected examples; memory must be retained")
             batches.append((ids, labels))
             tokens += len(ids)
         if not batches:
@@ -98,24 +115,26 @@ class HuggingFaceLearner:
             raise ValueError("only LoRA parameters may be trainable")
         before = [p.detach().cpu().clone() for _, p in trainable]
         optimizer = torch.optim.AdamW([p for _, p in trainable], lr=cfg.learning_rate)
-        losses, processed_tokens, cursor = [], 0, 0
+        losses, processed_tokens, consumed = [], 0, []
+        schedule = training_schedule(len(batches), cfg.steps, cfg.gradient_accumulation, cfg.seed)
         model.train()
-        for step in range(cfg.steps):
+        for step, indices in enumerate(schedule):
             if time.monotonic() - started >= cfg.max_seconds:
                 break
             microbatches = []
-            for _ in range(cfg.gradient_accumulation):
-                ids, labels = batches[cursor % len(batches)]
+            for index in indices:
+                ids, labels = batches[index]
                 if processed_tokens + len(ids) > cfg.max_training_tokens:
                     break
-                microbatches.append((ids, labels))
+                microbatches.append((index, ids, labels))
                 processed_tokens += len(ids)
-                cursor += 1
             if not microbatches:
                 break
             optimizer.zero_grad()
             step_loss = 0.0
-            for ids, labels in microbatches:
+            for index, ids, labels in microbatches:
+                if time.monotonic() - started >= cfg.max_seconds:
+                    raise RuntimeError("training deadline reached before the planned optimizer update")
                 inputs = torch.tensor([ids], device=cfg.device)
                 output = model(input_ids=inputs, attention_mask=torch.ones_like(inputs),
                                labels=torch.tensor([labels], device=cfg.device))
@@ -123,11 +142,18 @@ class HuggingFaceLearner:
                     raise RuntimeError("non-finite language-model SFT loss")
                 (output.loss / len(microbatches)).backward()
                 step_loss += float(output.loss.detach()) / len(microbatches)
+                example = examples[index]
+                consumed.append({"index": index, "task_id": example.task_id, "source_step": example.step,
+                                 "input_step": example.step if example.input_step is None else example.input_step,
+                                 "optimizer_step": step, "tokens": len(ids),
+                                 "input_sha256": hashlib.sha256(example.prompt.encode()).hexdigest()})
             if any(p.grad is not None for _, p in model.named_parameters() if not p.requires_grad):
                 raise RuntimeError("frozen base received gradients")
             torch.nn.utils.clip_grad_norm_([p for _, p in trainable], 1.0, error_if_nonfinite=True)
             optimizer.step()
             losses.append(step_loss)
+        if {row["index"] for row in consumed} != set(range(len(batches))):
+            raise RuntimeError("incomplete training sample coverage; memory must be retained")
         if not losses or not any(not torch.equal(old, p.detach().cpu()) for old, (_, p) in zip(before, trainable)):
             raise RuntimeError("no optimizer update reached the adapter")
         version = "hf_" + uuid.uuid4().hex
@@ -136,6 +162,10 @@ class HuggingFaceLearner:
         checksums = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in path.iterdir() if p.is_file()}
         metrics = {"steps": len(losses), "losses": losses, "unique_training_tokens": tokens,
                    "processed_training_tokens": processed_tokens,
+                   "validated_examples": len(examples), "unique_consumed_examples": len({r['index'] for r in consumed}),
+                   "sample_coverage": 1.0, "consumed_examples": consumed,
+                   "configured_gradient_accumulation": cfg.gradient_accumulation,
+                   "effective_gradient_accumulation": len(schedule[0]), "sampling_seed": cfg.seed,
                    "trainable_parameters": sum(p.numel() for _, p in trainable), "base_frozen": True,
                    "model_id": cfg.model_id, "model_revision": cfg.model_revision,
                    "rank": cfg.rank, "checksums": checksums, "seconds": time.monotonic()-started}

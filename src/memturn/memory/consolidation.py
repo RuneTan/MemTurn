@@ -24,6 +24,7 @@ class ToyConsolidator:
         self.store = store
 
     def consolidate(self, region, mode, batch, output_budget):
+        from ..tasks.toy import ToyVerifier
         grouped = defaultdict(list)
         for memory in region:
             grouped[memory.applicability].append(memory)
@@ -35,7 +36,11 @@ class ToyConsolidator:
                 ep = self.store.episode(ref.task_id)
                 if ep and 0 <= ref.step < len(ep.steps):
                     step = ep.steps[ref.step]
-                    examples.append(Example(ref.task_id, ref.step, step.observation, step.action))
+                    clean = Example(ref.task_id, ref.step, ep.steps[0].observation, step.action, input_step=0)
+                    if ToyVerifier().verify_example(clean, ep):
+                        examples.append(clean)
+                    else:
+                        examples.append(Example(ref.task_id, ref.step, step.observation, step.action))
             if not examples:
                 continue
             actions = {e.target for e in examples}

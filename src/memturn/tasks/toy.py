@@ -41,6 +41,12 @@ class ToyEnvironment:
         self.phase, self.feedback = "done", "Task complete."
         return Transition(self._observation(), 1.0, True, True, True)
 
+    @staticmethod
+    def retrieval_scope(observation):
+        """The version is public and defines incompatible rules in this fixture."""
+        state = json.loads(observation)
+        return f"{state['family']}:{state['version']}"
+
     def close(self):
         pass
 
@@ -59,8 +65,28 @@ class ToyVerifier:
         if example.task_id != episode.task_id or not 0 <= example.step < len(episode.steps):
             return False
         step = episode.steps[example.step]
-        return (step.accepted and step.observation == example.prompt and step.action == example.target
-                and step.action == PREPARE.get(episode.condition))
+        source_valid = step.accepted and step.action == example.target and step.action == PREPARE.get(episode.condition)
+        if example.input_step is None:
+            return source_valid and step.observation == example.prompt
+        if not source_valid or example.input_step != 0 or episode.steps[0].observation != example.prompt:
+            return False
+        # Replaying is fixture-specific: an arbitrary later action may need prerequisites.
+        try:
+            state = json.loads(example.prompt)
+            if state['phase'] != 'prepare' or state['feedback']:
+                return False
+            family, version = episode.condition.split(':')
+            env = ToyEnvironment()
+            initial = env.reset(Task(episode.task_id, family, version, state['object']))
+            if initial != example.prompt:
+                return False
+            replay = env.step(example.target)
+            return replay.accepted and not replay.done
+        except (KeyError, TypeError, ValueError):
+            return False
+        finally:
+            if 'env' in locals():
+                env.close()
 
 
 class ToyPolicy:

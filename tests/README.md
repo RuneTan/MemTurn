@@ -17,3 +17,8 @@ These tests do not download weights or execute the local language model. Run `lo
 `test_chain.py` checks grouped task identities, Writer token-budget pauses,
 daily-limit classification and raw-response audit records. Core tests also check
 deferred-source replay and that held-out probes leave learning state unchanged.
+
+`test_learning_retrieval_repairs.py` checks complete sample coverage, fail-closed
+training budgets, replay-verified initial inputs, applicability scopes, visible
+tool transcripts, memory-disabled evaluation and separation of tool errors from
+environment evidence. It also guards against copyable command placeholders.

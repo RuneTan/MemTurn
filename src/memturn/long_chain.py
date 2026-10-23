@@ -61,6 +61,7 @@ def run_chain(profile_path, writer_profile, output, tasks=500, group_size=20,
     os.environ.setdefault("HF_HOME", str(project / ".cache" / "huggingface"))
     spec = {"profile": profile, "writer": writer_config, "tasks": tasks,
             "group_size": group_size, "writer_token_budget": writer_token_budget,
+            "protocol_version": "retrieval-transcript-v3-sft-coverage-v2",
             "scope": "exploratory_grouped_toy_stream_not_formal_benchmark"}
     fingerprint = hashlib.sha256(dumps(spec).encode()).hexdigest()
     root = Path(output).resolve()
@@ -68,7 +69,7 @@ def run_chain(profile_path, writer_profile, output, tasks=500, group_size=20,
     if resume:
         checkpoint = json.loads((root / "checkpoint.json").read_text(encoding="utf-8"))
         if checkpoint["fingerprint"] != fingerprint:
-            raise ValueError("resume settings differ from the frozen experiment")
+            raise ValueError("resume settings or protocol differ from the frozen experiment; keep the old run and start a new one")
     else:
         root.mkdir(parents=True, exist_ok=False)
         write_json(root / "experiment.json", spec)

@@ -75,7 +75,7 @@ def evaluate(run, show_tool_state=False, seed_base=1000000):
                 for sample in range(2):
                     task = Task(f"final_{label}_{condition_index}_{sample}", family, version_label,
                                 seed_base + condition_index * 10 + sample,
-                                metadata={"evaluation_only": True})
+                                metadata={"evaluation_only": True, "memory_enabled": use_memory})
                     forced = ForcedPolicy(version, use_memory)
                     episode = runtime.run_task(task, ToyEnvironment(), forced)
                     episode = replace(episode, model_version=version)

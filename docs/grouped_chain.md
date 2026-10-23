@@ -1,6 +1,12 @@
 # Grouped exploratory task stream
 
 This is a qualitative development check, not a formal continual-learning result.
+
+The current runner freezes a protocol version as well as settings. The original
+2026-10-23 stream used the earlier prompt/training protocol; it cannot be resumed
+under the repaired code as if the method were unchanged. Preserve that run and
+start a new output directory for the repaired protocol. Reproducing the original
+resume requires its original code revision.
 The plan contains 500 tasks, grouped in blocks of 20. Conditions cycle through
 `vault:v1`, `api:v1`, `vault:v2`, and `api:v2`, then recur. These are four known
 rules within two synthetic families, not 500 distinct skills or benchmark tasks.

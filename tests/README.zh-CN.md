@@ -2,6 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+`test_learning_retrieval_repairs.py` 检查样本完整覆盖、预算不足时拒绝训练、重放校验的
+初始输入、适用范围、可见的工具历史、关闭记忆的评估、工具错误与环境证据的分离，
+以及提示中不出现可照抄的命令占位符。
+
 在项目根目录运行回归检查：
 
 ```text

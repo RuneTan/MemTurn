@@ -1,6 +1,5 @@
 """A replaceable, fixed lexical retriever used for offline integration checks."""
 import re
-from dataclasses import replace
 
 
 def terms(text):
@@ -11,11 +10,13 @@ class Retriever:
     def __init__(self, counter, config):
         self.counter, self.config = counter, config
 
-    def search(self, memories, query, excluded_refs=(), excluded_tasks=()):
+    def search(self, memories, query, excluded_refs=(), excluded_tasks=(), applicability=None):
         blocked, source_blocked, query_terms = set(excluded_refs), set(excluded_tasks), terms(query)
         candidates = []
         for memory in memories:
             if memory.ref in blocked or source_blocked.intersection(memory.task_ids):
+                continue
+            if applicability is not None and memory.applicability != applicability:
                 continue
             score = len(query_terms.intersection(terms(memory.payload)))
             if score:

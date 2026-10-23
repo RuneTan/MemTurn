@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 
-from ..contracts import Artifact, Episode, Step
+from ..contracts import Artifact, Episode, RetrievalResult, Step
 from ..memory.policies import cold_region, pack_half, select_one
 from ..memory.retrieval import Retriever
 from ..memory.store import BudgetExceeded, StaleSnapshot
@@ -64,32 +64,52 @@ class Runtime:
             with self.store.session() as view:
                 version = view.model_version
                 observation = environment.reset(task)
-                memories = self.retriever.search(view.memories, observation)
+                memory_enabled = task.metadata.get("memory_enabled", True)
+                scope_fn = getattr(environment, "retrieval_scope", lambda observation: None)
+                scope = scope_fn(observation)
+                memories = self.retriever.search(view.memories, observation, applicability=scope) if memory_enabled else ()
                 if not evaluation:
                     self.store.touch(memories)
                     with self.access_lock:
                         self.recent_refs.update(m.ref for m in memories)
                 searches = 0
+                search_limit = self.config.max_extra_searches if memory_enabled else 0
+                policy_history = [RetrievalResult(None, memories, search_limit)]
+                previous_queries = {}
                 for _ in range(task.max_steps):
                     if time.monotonic() - started >= task.metadata.get("timeout_seconds", float("inf")):
                         status = "deadline"
                         break
-                    action = policy.act(observation, memories, view.model_version, tuple(steps))
+                    action = policy.act(observation, memories, view.model_version, tuple(policy_history))
                     if isinstance(action, dict) and action.get("kind") == "memory_search":
-                        if searches >= self.config.max_extra_searches:
-                            action = "invalid_memory_search_budget"
+                        query = action["query"]
+                        if searches >= search_limit:
+                            error = "search_budget_exhausted"
+                            status = "tool_protocol_error"
                         else:
                             searches += 1
-                            memories = self.retriever.search(view.memories, action["query"])
+                            key = (scope, query.strip().casefold())
+                            error = "duplicate_query" if key in previous_queries else None
+                            if error:
+                                memories = previous_queries[key]
+                            else:
+                                memories = self.retriever.search(view.memories, query, applicability=scope)
+                                previous_queries[key] = memories
                             if not evaluation:
                                 self.store.touch(memories)
                                 with self.access_lock:
                                     self.recent_refs.update(m.ref for m in memories)
-                            continue
+                        policy_history.append(RetrievalResult(query, memories, search_limit - searches, error))
+                        self.event("memory_search", task_id=task.id, query=query, error=error,
+                                   remaining=search_limit - searches, refs=[m.ref for m in memories])
+                        continue
                     transition = environment.step(action)
-                    steps.append(Step(observation, action, transition.observation, transition.accepted))
+                    step = Step(observation, action, transition.observation, transition.accepted)
+                    steps.append(step)
+                    policy_history.append(step)
                     reward += transition.reward
                     observation = transition.observation
+                    scope = scope_fn(observation)
                     if transition.done:
                         success, status = transition.success, "completed"
                         break
@@ -228,7 +248,8 @@ class Runtime:
                            support_tasks=self.validator.support_count(selected))
             if getattr(self.learner, "accepts_memory_context", False):
                 allowed = self.training_memories(selected)
-                histories = {(e.task_id, e.step): self.store.episode(e.task_id).steps[:e.step]
+                histories = {(e.task_id, e.step): self.store.episode(e.task_id).steps[:
+                             e.step if e.input_step is None else e.input_step]
                              for e in selected.examples}
                 self.event("student_context", excluded=selected.ref, memory_refs=[m.ref for m in allowed])
                 artifact = self.learner.train(selected.examples, self.store.model_version,

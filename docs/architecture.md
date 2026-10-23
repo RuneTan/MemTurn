@@ -37,6 +37,29 @@ retrieved memory. The tiny classifier uses only public observation features.
 Independent semantic paraphrases are not automatically detected: this remains a
 diagnostic obligation rather than a claimed perfect leakage detector.
 
+## Policy and training contracts
+
+Retrieval exchanges are separate from environment evidence steps. The policy
+sees automatic retrieval, subsequent queries/results, errors and remaining calls.
+Exhausted tool requests never become environment commands. The per-task decision
+limit still bounds the loop. Memory-disabled evaluation removes both initial
+retrieval and additional tool access.
+
+Task adapters may expose a public applicability scope. The toy adapter's family
+and version define incompatible rules, so it filters those conditions exactly;
+unscoped environments retain lexical retrieval. This is not a universal filter
+for transferable knowledge.
+
+Training plans shuffle samples, cover each selected example before repetitions,
+and adjust accumulation to fit the configured optimizer steps. They reject jobs
+that cannot cover the selected data within token/deadline limits. Actual consumed
+examples are recorded. For toy data only, simulator replay can verify an initial
+input paired with a later accepted action; `input_step` distinguishes that input
+from the original evidence step. Other domains require independent verification.
+Training history stops at the input step, preventing later feedback from leaking
+into projected inputs. Updates and sample coverage still do not certify mastery;
+the current publication policy does not contain a general behavioral mastery gate.
+
 ## Capacity maintenance
 
 The cold age is the foreground batch minus the last real task-access anchor.

@@ -20,6 +20,7 @@ class Example:
     step: int
     prompt: str
     target: str
+    input_step: int | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,15 @@ class Step:
     action: str
     feedback: str
     accepted: bool
+
+
+@dataclass(frozen=True)
+class RetrievalResult:
+    """Transient policy transcript, separate from environment evidence indices."""
+    query: str | None
+    memories: tuple[Memory, ...]
+    remaining: int
+    error: str | None = None
 
 
 @dataclass(frozen=True)

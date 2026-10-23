@@ -1,13 +1,23 @@
 # Validation status
 
-Updated: 2026-10-23. This is implementation evidence, not paper results.
+Updated: 2026-10-24. This is implementation evidence, not paper results.
 
-Latest isolated-environment regression run: **38 tests passed**. All 12 project
+Latest isolated-environment regression run: **47 tests passed**. All 12 project
 README locations have separate English and Chinese files with language links.
 
 Grouped-chain checks additionally cover raw HTTP response auditing, daily-limit
 classification, a new allowance on explicit resume, source requeue without task
 double-counting, and held-out probes that leave learning state unchanged.
+
+Training/retrieval repairs additionally check complete shuffled sample coverage,
+fail-closed token budgets, replay-verified initial inputs, optional applicability
+scope, visible tool exchanges, memory-disabled evaluation and non-executable
+prompt placeholders. Fixed-bank local diagnostics reproduced 4/8 completion with
+the original implementation, 6/8 with scope alone, and 8/8 with the full tool
+protocol. An eight-task real-LM/LoRA fixture run reached 8/8 after placeholder
+removal, with two publications and no background errors. Learning remains
+incomplete: a fixed balanced-data calibration reached 25% first-action accuracy
+with two steps and 50% with 32. See [investigation and limits](learning_retrieval_repairs_2026-10-24.md).
 
 ## Checked locally
 

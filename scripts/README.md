@@ -20,3 +20,9 @@ Writer review examples and Matplotlib PNG/SVG figures without model calls.
 `evaluate_chain.py` runs local-only, complete held-out task episodes after a
 chain has paused. It compares frozen/current adapters and absent/current memory,
 with no Writer calls, training or learning-state changes.
+
+`validate_repairs.py` runs bounded local repair diagnostics against a frozen Git
+revision: fixed-bank retrieval ablations, replay-verified SFT data, actual sample
+coverage and held-out first actions. It writes to a new run directory and never
+resumes the source experiment or contacts Groq. Training-only calibration flags
+can vary the fixed dataset and explicit step/token budgets.
