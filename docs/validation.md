@@ -2,8 +2,12 @@
 
 Updated: 2026-10-23. This is implementation evidence, not paper results.
 
-Latest isolated-environment regression run: **31 tests passed**. All 12 project
+Latest isolated-environment regression run: **38 tests passed**. All 12 project
 README locations have separate English and Chinese files with language links.
+
+Grouped-chain checks additionally cover raw HTTP response auditing, daily-limit
+classification, a new allowance on explicit resume, source requeue without task
+double-counting, and held-out probes that leave learning state unchanged.
 
 ## Checked locally
 
@@ -35,6 +39,12 @@ kernels. Qwen3-1.7B GPU inference and two real language-model LoRA publications
 were executed. The fixture-operator run succeeded on 5/8 tasks, while the all-model
 operator run admitted no memories because its Writer candidates failed evidence
 checks. Full measurements and their limitations are in [local model notes](local_model.md).
+
+A grouped exploratory stream subsequently completed 182 of 500 planned tasks
+before its local Writer allowance stopped it. It recorded 38 adapter publications,
+zero HTTP/background errors and a 9.61 GiB CUDA peak. The largest post-maintenance bank sample was only 46
+tokens, so capacity maintenance was not tested. End-state comparisons and the
+training/protocol limitations are documented in the [pilot report](exploratory_chain_2026-10-23.md).
 
 The Groq GPT-OSS 120B Writer was subsequently connected to the local task model
 with fixture consolidation: all four tasks completed, four Writer memories were

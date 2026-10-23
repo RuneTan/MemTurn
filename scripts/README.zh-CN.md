@@ -13,3 +13,9 @@
 ```
 
 虚拟环境和权重均被 Git 忽略。实测配置见 [本地模型说明](../docs/local_model.md)。
+
+`summarize_chain.py` 读取探索运行记录，生成分组报告、Writer 样例及 Matplotlib
+PNG/SVG 图，不调用模型。
+
+`evaluate_chain.py` 在任务链暂停后，仅用本地模型执行完整的独立诊断任务，对比
+冻结基座/当前 LoRA 及有/无当前记忆，不调用 Writer、不训练、不改变学习状态。

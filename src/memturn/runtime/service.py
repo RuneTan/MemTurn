@@ -150,6 +150,8 @@ class Runtime:
 
     def _write(self, episode):
         memory = None if self.store.writer_processed(episode.task_id) else self.writer.write(episode, self.store.batch)
+        if memory is not None:
+            self.event("writer_candidate", task_id=episode.task_id, memory=memory.to_dict())
         if memory is not None and self.validator.valid_memory(memory):
             projected = self.store.stats()["active_tokens"] + self.counter.count(memory.payload)
             if projected >= self.config.memory_token_cap * self.config.capacity_trigger_ratio:

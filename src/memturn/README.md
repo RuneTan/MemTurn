@@ -13,3 +13,7 @@
 | [runtime](runtime/README.md) | Foreground sessions and background publication |
 
 `cli.py` provides commands. `experiments.py` assembles remote profiles; `local_experiment.py` assembles local GPU checks. These assembly modules do not change the memory policy.
+
+`long_chain.py` runs quota-aware grouped exploratory streams; `chain_support.py`
+supplies bounded Writer retries and no-feedback held-out probes. Observer logs
+are separate from the agent's bounded memory.

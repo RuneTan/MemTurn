@@ -8,6 +8,8 @@
 | [Setup](setup.md) | Offline development and remote prerequisites |
 | [Local model](local_model.md) | Isolated GPU model setup and measured integration checks |
 | [External Writer](writer_api.md) | Free-tier candidates and independent API configuration |
+| [Grouped chain](grouped_chain.md) | Exploratory task groups, quotas, probes and clean resume |
+| [2026-10-23 pilot](exploratory_chain_2026-10-23.md) | Actual 182-task results and qualified findings |
 | [Validation](validation.md) | Checked behavior and remaining work |
 | [Literature](literature.md) | Primary papers and attribution |
 

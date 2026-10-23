@@ -13,3 +13,10 @@ Run from the checkout:
 ```
 
 Both environment and weights are ignored by Git. Measured setup details are in [local model notes](../docs/local_model.md).
+
+`summarize_chain.py` reads exploratory run artifacts and produces group reports,
+Writer review examples and Matplotlib PNG/SVG figures without model calls.
+
+`evaluate_chain.py` runs local-only, complete held-out task episodes after a
+chain has paused. It compares frozen/current adapters and absent/current memory,
+with no Writer calls, training or learning-state changes.

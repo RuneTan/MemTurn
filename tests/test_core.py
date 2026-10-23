@@ -236,6 +236,31 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(self.store.model_version, "committed")
         self.assertEqual(self.store.memories(), ())
 
+    def test_deferred_writer_requeue_does_not_count_task_twice(self):
+        ep = episode("deferred")
+        self.store.record_result(ep)
+        self.store.finish_source(ep.task_id)
+        self.assertIsNone(self.store.episode(ep.task_id))
+        self.store.requeue_source(ep)
+        self.assertEqual(self.store.stats()["completed"], 1)
+        self.make_runtime().drain()
+        self.assertEqual(len(self.store.memories()), 1)
+        self.assertEqual(self.store.stats()["completed"], 1)
+
+    def test_heldout_probes_do_not_write_or_refresh_memory(self):
+        import json
+        from memturn.chain_support import probe_actions
+        self.add("source")
+        before = self.store.stats()
+        class Policy:
+            def act(self, observation, *args):
+                state = json.loads(observation)
+                return PREPARE[f"{state['family']}:{state['version']}"]
+        rows = probe_actions(None, self.store, Policy(), self.counter, self.config, 0)
+        self.assertEqual(len(rows), 32)
+        self.assertTrue(all(r["correct"] for r in rows))
+        self.assertEqual(self.store.stats(), before)
+
     def test_restart_requeues_pending_writer_and_cancels_uncommitted_training(self):
         ep = episode("pending")
         self.assertTrue(self.store.record_result(ep))

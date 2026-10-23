@@ -173,6 +173,20 @@ class Store:
         with self.transaction():
             self._set("refused_writes", self._get("refused_writes") + 1)
 
+    def requeue_source(self, episode):
+        """Retry a known task's deferred Writer without counting another task."""
+        with self.transaction():
+            if not self.db.execute("SELECT 1 FROM results WHERE id=?", (episode.task_id,)).fetchone():
+                raise ValueError("only a recently recorded task can be requeued")
+            existing = self.db.execute("SELECT pending FROM episodes WHERE id=?", (episode.task_id,)).fetchone()
+            if existing and existing[0] > 0:
+                return
+            pending = self.db.execute("SELECT count(*) FROM episodes WHERE pending>0").fetchone()[0]
+            if pending >= self.config.max_pending_jobs:
+                raise BudgetExceeded("pending writer queue is full")
+            self.db.execute("INSERT OR REPLACE INTO episodes VALUES (?,?,1)",
+                            (episode.task_id, dumps(episode.to_dict())))
+
     def finish_source(self, task_id):
         with self.transaction():
             self.db.execute("UPDATE episodes SET pending=0 WHERE id=?", (task_id,))

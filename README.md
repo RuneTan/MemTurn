@@ -37,6 +37,10 @@ A fixed API Writer can be selected independently with `--writer-profile`.
 See [free-tier options and setup](docs/writer_api.md). The Groq pilot admitted
 four memories and completed one local LoRA publication; Gemini remains untested.
 
+For quota-aware exploratory streams, see [grouped-chain setup](docs/grouped_chain.md).
+This mode plans up to 500 grouped synthetic tasks, records raw Writer candidates,
+and stops at its token budget with a clean resume checkpoint.
+
 ## System design
 
 Each task pins a model version and memory view, retrieves initially, and can request bounded additional retrieval. Background work writes grounded experience, consolidates a bounded region, and commits valid replacement memories.

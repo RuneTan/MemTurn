@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import json
 import os
 import re
+import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -29,14 +30,23 @@ def parse_json(text):
     return json.loads(text)
 
 
+class ModelHTTPError(RuntimeError):
+    def __init__(self, status, retry_after=0, daily=False):
+        super().__init__(f"model request failed with HTTP {status}")
+        self.status, self.retry_after, self.daily = status, retry_after, daily
+
+
 class HttpChat:
-    def __init__(self, config):
+    def __init__(self, config, audit=None):
         if not config.base_url.startswith(("http://", "https://")):
             raise ValueError("model endpoint must use HTTP(S)")
         self.config = config
-        self.usage = {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0}
+        self.audit = audit
+        self.usage = {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0,
+                      "attempts": 0, "failures": 0, "cached_prompt_tokens": 0}
 
     def complete(self, messages, model_override=None):
+        started = time.monotonic()
         payload = {"model": model_override or self.config.model, "messages": messages,
                    "temperature": self.config.temperature, "max_tokens": self.config.max_tokens}
         if self.config.chat_template_kwargs is not None:
@@ -49,16 +59,33 @@ class HttpChat:
             headers["Authorization"] = "Bearer " + key
         request = Request(self.config.base_url.rstrip("/") + "/chat/completions",
                           json.dumps(payload).encode("utf-8"), headers=headers)
+        self.usage["attempts"] += 1
         try:
             with urlopen(request, timeout=self.config.timeout_seconds) as response:
                 result = json.load(response)
         except HTTPError as error:
-            raise RuntimeError(f"model request failed with HTTP {error.code}") from None
+            self.usage["failures"] += 1
+            body = error.read(16384).decode("utf-8", "replace")
+            daily = bool(re.search(r"tokens per day|requests per day|\bTPD\b|\bRPD\b|daily", body, re.I))
+            try:
+                retry_after = float(error.headers.get("Retry-After", 0))
+            except (TypeError, ValueError, AttributeError):
+                retry_after = 0
+            if self.audit:
+                self.audit({"event": "http_model_error", "status": error.code,
+                            "daily": daily, "retry_after": retry_after})
+            raise ModelHTTPError(error.code, retry_after, daily) from None
         usage = result.get("usage", {})
         self.usage["requests"] += 1
         for key in ("prompt_tokens", "completion_tokens"):
             self.usage[key] += int(usage.get(key, 0))
-        return result["choices"][0]["message"]["content"]
+        cached = int(usage.get("prompt_tokens_details", {}).get("cached_tokens", 0))
+        self.usage["cached_prompt_tokens"] += cached
+        content = result["choices"][0]["message"]["content"]
+        if self.audit:
+            self.audit({"event": "http_model_response", "model": self.config.model,
+                        "text": content, "usage": usage, "seconds": time.monotonic() - started})
+        return content
 
 
 def environment_action(action):

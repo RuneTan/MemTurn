@@ -85,6 +85,13 @@ def local_smoke(args):
                      ensure_ascii=False, indent=2))
 
 
+def long_chain(args):
+    from .long_chain import run_chain
+    print(json.dumps(run_chain(args.profile, args.writer_profile, args.output, args.tasks,
+                               args.group_size, args.writer_token_budget, args.resume),
+                     ensure_ascii=False, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(prog="memturn")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -111,6 +118,15 @@ def main():
     local.add_argument("--operators", choices=("model", "fixture"), default="model")
     local.add_argument("--writer-profile", help="optional separate HTTP Writer config; reads only its named key env var")
     local.set_defaults(handler=local_smoke)
+    chain = sub.add_parser("long-chain", help="grouped exploratory local stream with Writer budget and probes")
+    chain.add_argument("--profile", default="configs/local_qwen3_1_7b.json")
+    chain.add_argument("--writer-profile", default="configs/writer.groq.example.json")
+    chain.add_argument("--output", required=True)
+    chain.add_argument("--tasks", type=int, default=500)
+    chain.add_argument("--group-size", type=int, default=20)
+    chain.add_argument("--writer-token-budget", type=int, default=180000)
+    chain.add_argument("--resume", action="store_true")
+    chain.set_defaults(handler=long_chain)
     args = parser.parse_args()
     if getattr(args, "tasks", 1) <= 0:
         parser.error("tasks must be positive")
