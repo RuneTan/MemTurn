@@ -1,0 +1,46 @@
+# Local research archives and extracted source material
+/资料/
+/过去版本存档/
+/tmp/
+/papers/**/*.pdf
+
+# Credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+secrets*.json
+/Personal_access_tokens*
+
+# Python environments and generated caches
+/.venv/
+/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+/build/
+/dist/
+
+# Model weights, data, and experiment artifacts
+/models/
+/checkpoints/
+/data/
+/runs/
+/outputs/
+/.cache/
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+
+# Local editor and OS files
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
