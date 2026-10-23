@@ -59,12 +59,16 @@ publication records. These records are not available through memory retrieval.
 | --- | --- | --- | --- | --- |
 | Local task model, fixture Writer/Consolidator, SFT enabled | 5/8 | 2 | 10.70 GiB | Real adapter continuation and publication completed; no background errors |
 | Local model for task/Writer/Consolidator, SFT enabled | 8/8 | 0 | 4.06 GiB | All eight Writer candidates failed evidence checks, so no memory was admitted |
+| Local task model, Groq GPT-OSS 120B Writer, fixture Consolidator, SFT enabled | 4/4 | 1 | 9.09 GiB | Four Writer memories admitted; one consolidation and publication; no background errors |
 
 Local reports: `local_20261023T145345681297Z` and
 `local_20261023T145602611706Z`. These directories are retained locally, not
 published with weights or raw run data. The two short runs are integration
 checks with different operators and state trajectories, not matched controls.
 Their task-success difference must not be interpreted as a training effect.
+
+The later Groq pilot is `local_20261023T151237196728Z`; its published adapter was
+not used on later tasks in this four-task stream. See [Writer API notes](writer_api.md).
 
 Each SFT job used rank 8, `q_proj`/`v_proj`, 1,605,632 trainable parameters and
 two optimizer steps. The second published adapter continued the first. Finite

@@ -2,7 +2,7 @@
 
 Updated: 2026-10-23. This is implementation evidence, not paper results.
 
-Latest isolated-environment regression run: **30 tests passed**. All 12 project
+Latest isolated-environment regression run: **31 tests passed**. All 12 project
 README locations have separate English and Chinese files with language links.
 
 ## Checked locally
@@ -35,6 +35,12 @@ kernels. Qwen3-1.7B GPU inference and two real language-model LoRA publications
 were executed. The fixture-operator run succeeded on 5/8 tasks, while the all-model
 operator run admitted no memories because its Writer candidates failed evidence
 checks. Full measurements and their limitations are in [local model notes](local_model.md).
+
+The Groq GPT-OSS 120B Writer was subsequently connected to the local task model
+with fixture consolidation: all four tasks completed, four Writer memories were
+admitted, and one real LoRA publication completed without background errors.
+The run used 4,809 Writer tokens and peaked at 9.09 GiB CUDA allocation. This
+verifies the mixed backend path, not a measured learning advantage.
 
 ## Not yet validated
 

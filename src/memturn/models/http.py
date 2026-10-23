@@ -43,7 +43,7 @@ class HttpChat:
             payload["chat_template_kwargs"] = self.config.chat_template_kwargs
         if self.config.response_format is not None:
             payload["response_format"] = self.config.response_format
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "User-Agent": "MemTurn/0.1"}
         key = os.environ.get(self.config.api_key_env)
         if key:
             headers["Authorization"] = "Bearer " + key

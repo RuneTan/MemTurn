@@ -52,7 +52,21 @@ supports for an eligible SFT entry.
 
 The HTTP client omits Qwen-specific `chat_template_kwargs` unless explicitly
 configured, preventing those options from leaking into other providers. Existing
-remote Qwen profiles explicitly disable thinking. The provider templates are
-prepared but have not been called: no Writer provider key has been configured.
+remote Qwen profiles explicitly disable thinking. It sends an application
+User-Agent, and the Writer explicitly requests JSON as required by Groq's JSON
+object mode. Both compatibility requirements were checked against the live API.
+
+## Checked Groq pilot
+
+Run `local_20261023T151237196728Z` combined local Qwen3-1.7B task execution, Groq
+GPT-OSS 120B writing, fixture consolidation and local language-model SFT. Four
+tasks completed; all four Writer outputs were admitted; one consolidation and
+one LoRA publication completed, with no background errors. The Writer used four
+successful requests, 3,561 input tokens and 1,248 completion tokens. Peak CUDA
+allocation was 9.09 GiB. The adapter was published at the stream end, so subsequent
+performance was not evaluated. Gemini remains untested.
+
+The supplied key stayed outside the repository and was injected only into the
+run process. No automatic credential-file loading was added to the application.
 Rate limits and provider errors are recorded through the background failure path;
 they are not silently converted into admitted memories.

@@ -42,7 +42,7 @@ class ChatWriter:
 
     def write(self, episode, batch):
         messages = [{"role": "system", "content":
-                     'Extract one grounded experience from this completed task. '
+                     'Extract one grounded experience from this completed task. Return only JSON. '
                      'Return {"memory":null} if no acceptable evidence, otherwise '
                      '{"memory":{...}}. ' + SCHEMA + " " + self.task_guidance},
                     {"role": "user", "content": json.dumps(dict(episode.to_dict(),

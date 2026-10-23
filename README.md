@@ -34,8 +34,8 @@ The first run uses the model for the task, Writer and Consolidator. The second u
 See [local model notes](docs/local_model.md) for hardware, measured results and reproduction.
 
 A fixed API Writer can be selected independently with `--writer-profile`.
-See [free-tier options and setup](docs/writer_api.md); these provider templates
-have not yet been exercised with a key.
+See [free-tier options and setup](docs/writer_api.md). The Groq pilot admitted
+four memories and completed one local LoRA publication; Gemini remains untested.
 
 ## System design
 

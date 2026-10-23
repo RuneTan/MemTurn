@@ -19,4 +19,5 @@ exercise saturation; see [budget rationale](../docs/local_model.md).
 
 `writer.groq.example.json` and `writer.gemini.example.json` configure an optional
 HTTP Writer with the local task model. Keys are read only from the named process
-environment variable. Provider access has not been exercised; see [API notes](../docs/writer_api.md).
+environment variable. Groq has passed a four-task integration check; Gemini remains
+untested. See [API notes](../docs/writer_api.md).

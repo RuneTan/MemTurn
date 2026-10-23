@@ -34,7 +34,8 @@ python -X utf8 -m unittest discover -s tests -t . -v
 硬件、实测结果和复现步骤见 [本地模型说明](docs/local_model.md)。
 
 可通过 `--writer-profile` 单独选用固定的 API Writer。免费候选与配置方法见
-[接口说明](docs/writer_api.md)；这些模板尚未使用密钥实际调用。
+[接口说明](docs/writer_api.md)。Groq 小规模试跑已接纳四条记忆，并完成一次本地
+LoRA 发布；Gemini 尚未验证。
 
 ## 系统设计
 

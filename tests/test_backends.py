@@ -10,12 +10,21 @@ from memturn.contracts import Episode, Example, Step, Task
 from memturn.experiments import inspect_profile, run_profile
 from memturn.learning.huggingface import supervised_tokens
 from memturn.models.http import ChatConfig, ChatPolicy, HttpChat, environment_action, parse_json, task_messages
-from memturn.models.agents import decode_memory
+from memturn.models.agents import ChatWriter, decode_memory
 from memturn.tasks.alfworld import ALFWorldEnvironment
 from memturn.tasks.scienceworld import ScienceWorldEnvironment
 
 
 class BackendTests(unittest.TestCase):
+    def test_writer_prompt_explicitly_requests_json_for_provider_json_mode(self):
+        class Client:
+            def complete(self, messages):
+                self.messages = messages
+                return '{"memory":null}'
+        client = Client()
+        self.assertIsNone(ChatWriter(client).write(Episode("a", "vault", "vault:v1", (), 0, False), 0))
+        self.assertIn("json", client.messages[0]["content"].lower())
+
     def test_model_sample_references_copy_exact_accepted_source(self):
         source = Episode("a", "vault", "vault:v1",
                          (Step("verbatim observation", "inspect_lock", "accepted", True),
@@ -51,6 +60,7 @@ class BackendTests(unittest.TestCase):
             action = ChatPolicy(client).act("room", (), "adapter_v2")
         self.assertEqual(action, "look")
         payload = json.loads(request.call_args.args[0].data)
+        self.assertEqual(request.call_args.args[0].get_header("User-agent"), "MemTurn/0.1")
         self.assertEqual(payload["model"], "adapter_v2")
         self.assertNotIn("chat_template_kwargs", payload)
         self.assertEqual(client.usage["prompt_tokens"], 10)

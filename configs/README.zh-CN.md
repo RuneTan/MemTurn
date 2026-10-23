@@ -17,4 +17,5 @@ python run_memturn.py check-profile --profile configs/scienceworld.example.json
 详见 [预算依据](../docs/local_model.md)。
 
 `writer.groq.example.json` 和 `writer.gemini.example.json` 为本地任务模型配置独立的
-HTTP Writer。密钥只从指定的进程环境变量读取；接口尚未实际调用，见 [接入说明](../docs/writer_api.md)。
+HTTP Writer。密钥只从指定的进程环境变量读取；Groq 已通过四任务接入检查，
+Gemini 尚未验证，见 [接入说明](../docs/writer_api.md)。
