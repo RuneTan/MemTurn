@@ -18,11 +18,16 @@
     "entry_token_cap": 512,
     "retrieval_token_cap": 512,
     "cold_fraction": 0.5,
-    "seed": 42
+    "seed": 42,
+    "training_material": "mixed",
+    "max_examples_per_job": 32
   },
   "training": {
     "loader_class": "AutoModelForCausalLM",
-    "target_modules": ["q_proj", "v_proj"],
+    "target_modules": [
+      "q_proj",
+      "v_proj"
+    ],
     "rank": 8,
     "alpha": 16,
     "learning_rate": 0.0001,

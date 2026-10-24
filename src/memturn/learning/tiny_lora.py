@@ -49,6 +49,8 @@ class TinyLora:
 
     def train(self, examples, parent_version):
         torch = self.torch
+        if any(e.example_type != 'decision' for e in examples):
+            raise ValueError('the tiny engineering classifier supports only explicit decision_only material')
         if not examples or parent_version not in self.models:
             raise ValueError("training requires examples and a loaded parent")
         model = self._new()

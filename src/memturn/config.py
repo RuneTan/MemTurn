@@ -16,6 +16,8 @@ class Config:
     output_token_cap: int = 2048
     entry_token_cap: int = 512
     min_support_tasks: int = 2
+    training_material: str = "mixed"
+    max_examples_per_job: int = 32
     retrieval_top_k: int = 3
     retrieval_token_cap: int = 768
     max_extra_searches: int = 2
@@ -34,6 +36,7 @@ class Config:
         for name in ("memory_token_cap", "source_training_byte_cap", "metadata_byte_cap",
                      "snapshot_byte_cap", "database_byte_cap", "batch_size", "region_token_cap",
                      "output_token_cap", "entry_token_cap", "min_support_tasks", "retrieval_top_k",
+                     "max_examples_per_job",
                      "retrieval_token_cap", "max_capacity_regions", "max_pending_jobs", "max_sessions",
                      "max_adapter_versions", "max_job_records"):
             if getattr(self, name) <= 0:
@@ -44,6 +47,8 @@ class Config:
             raise ValueError("v0.2 requires a positive cold_fraction and a fixed half return budget")
         if self.max_extra_searches < 0 or self.max_adapter_versions < 3:
             raise ValueError("Invalid search or adapter-version limit")
+        if self.training_material not in ('mixed', 'decision_only'):
+            raise ValueError('training_material must be mixed or explicit decision_only')
 
     @classmethod
     def load(cls, path):

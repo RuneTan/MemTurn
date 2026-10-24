@@ -8,6 +8,8 @@ MemTurn studies learning across changing task streams with bounded external memo
 
 **Status: executable research prototype.** The memory lifecycle and a tiny gradient-based fixture run locally. A separate Qwen3-1.7B backend supports local GPU integration checks. ScienceWorld and ALFWorld experiments, the trained Auto-Dreamer Consolidator and long-run comparisons remain pending. Engineering checks do not establish research advantages.
 
+Current implementation: [mixed supervision, native environments and growth accounting](docs/implementation_2026-10-24.md).
+
 Latest investigation: [learning and retrieval repairs](docs/learning_retrieval_repairs_2026-10-24.md),
 including measured fixes and the remaining limits on parametric learning.
 

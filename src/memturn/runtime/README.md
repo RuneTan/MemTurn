@@ -14,3 +14,5 @@ Memory replacement commits first. A later publication transaction updates the mo
 Foreground bookkeeping uses a separate short lock from maintenance. Cold commits reject changed access timestamps. Restart recovery requeues pending Writer sources and cancels uncommitted model jobs; Writer insertion and its completion marker commit together.
 
 Command-line checks wait between tasks. Concurrent orchestration tests are distinct from real service-latency measurements; the local GPU backend serializes generation calls.
+
+Episodes persist actual initial/additional memory exposures separately from native steps. Public operator inputs exclude native private manifests/condition labels. Static SFT receives original environment history plus freshly retrieved permitted memory, without historical retrieval bodies or queries.

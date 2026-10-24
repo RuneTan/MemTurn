@@ -1,6 +1,6 @@
 """SQLite commits are short; task snapshots never hold a database transaction."""
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 import json
 import sqlite3
@@ -38,7 +38,10 @@ class Store:
             CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,payload TEXT NOT NULL);
         """)
         defaults = {"version": 0, "completed": 0, "utility": 0.0, "refused_writes": 0,
-                    "model_version": "base", "artifact": None, "regular_batch": -1}
+                    "model_version": "base", "artifact": None, "regular_batch": -1,
+                    "growth_initial_tokens":sum(counter.count(m.payload) for m in self._memories()),
+                    "growth_admitted_tokens":0, "growth_regular_released_tokens":0,
+                    "growth_internalized_tokens":0, "growth_capacity_released_tokens":0}
         for key, value in defaults.items():
             self.db.execute("INSERT OR IGNORE INTO meta VALUES (?,?)", (key, dumps(value)))
         self.db.commit()
@@ -81,7 +84,7 @@ class Store:
         with self.lock:
             memories = self._memories()
             source_bytes = sum(len(row[0].encode("utf-8")) for row in self.db.execute("SELECT payload FROM episodes"))
-            training_bytes = sum(len(dumps([e.__dict__ for e in m.examples]).encode("utf-8")) for m in memories)
+            training_bytes = sum(len(dumps([asdict(e) for e in m.examples]).encode("utf-8")) for m in memories)
             metadata_bytes = sum(len(dumps({k: v for k, v in m.to_dict().items()
                                           if k not in ("content", "applicability", "examples")}).encode("utf-8"))
                                  for m in memories)
@@ -94,6 +97,8 @@ class Store:
                     "source_training_bytes": source_bytes + training_bytes, "metadata_bytes": metadata_bytes,
                     "snapshot_bytes": sum(size for _, size in self.views.values()),
                     "active_sessions": len(self.views), "token_counter": self.counter.name,
+                    "growth":{key:self._get('growth_'+key) for key in ('initial_tokens','admitted_tokens',
+                        'regular_released_tokens','internalized_tokens','capacity_released_tokens')},
                     "database_bytes": self.path.stat().st_size if self.path.exists() else 0}
 
     def _check(self):
@@ -209,6 +214,7 @@ class Store:
                     raise StaleSnapshot("writer ID already has different content")
             else:
                 self.db.execute("INSERT INTO memories VALUES (?,?)", (memory.id, dumps(memory.to_dict())))
+                self._set('growth_admitted_tokens', self._get('growth_admitted_tokens') + self.counter.count(memory.payload))
                 self._set("version", self._get("version") + 1)
             if source_task_id is not None:
                 self.db.execute("UPDATE episodes SET pending=2 WHERE id=?", (source_task_id,))
@@ -221,6 +227,8 @@ class Store:
             for old in region:
                 if old.ref not in current or (mode == "capacity" and current[old.ref].recency_anchor != old.recency_anchor):
                     raise StaleSnapshot("region changed or was accessed after its snapshot")
+            released = sum(self.counter.count(current[m.ref].payload) for m in region) - sum(
+                self.counter.count(m.payload) for m in outputs)
             for item in outputs:
                 if not item.parents or not set(item.parents).issubset({m.ref for m in region}):
                     raise ValueError("replacement has invalid contributing parents")
@@ -236,6 +244,8 @@ class Store:
                 item = replace(item, recency_anchor=anchor)
                 self.db.execute("INSERT INTO memories VALUES (?,?)", (item.id, dumps(item.to_dict())))
             self._set("version", self._get("version") + 1)
+            growth_key = 'growth_capacity_released_tokens' if mode == 'capacity' else 'growth_regular_released_tokens'
+            self._set(growth_key, self._get(growth_key) + released)
             self._gc_sources()
 
     @contextmanager
@@ -281,6 +291,8 @@ class Store:
                 raise BudgetExceeded("too many live adapter versions")
             self._set("model_version", artifact.version)
             self._set("artifact", artifact.__dict__)
+            self._set('growth_internalized_tokens', self._get('growth_internalized_tokens') +
+                      self.counter.count(Memory.from_dict(json.loads(row[0])).payload))
             self.db.execute("DELETE FROM memories WHERE id=?", (selected.id,))
             self._set("version", self._get("version") + 1)
             self._gc_sources()

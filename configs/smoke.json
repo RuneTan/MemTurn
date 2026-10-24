@@ -9,5 +9,7 @@
   "cold_fraction": 0.5,
   "return_token_ratio": 0.5,
   "max_capacity_regions": 2,
-  "seed": 42
+  "seed": 42,
+  "training_material": "mixed",
+  "max_examples_per_job": 32
 }

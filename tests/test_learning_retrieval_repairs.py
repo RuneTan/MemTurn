@@ -133,7 +133,7 @@ class LearningRetrievalRepairs(unittest.TestCase):
                 runtime.close()
                 store.close()
 
-    def test_replay_projection_removes_feedback_only_after_environment_verification(self):
+    def test_consolidation_keeps_native_source_input_without_projection(self):
         with tempfile.TemporaryDirectory() as folder:
             store = Store(Path(folder) / 'state.sqlite', Config(), OfflineCounter())
             runtime = Runtime(store, ToyWriter(), ToyConsolidator(store), Validator(store, ToyVerifier()))
@@ -145,10 +145,10 @@ class LearningRetrievalRepairs(unittest.TestCase):
                 source = runtime.run_task(Task('source', 'vault', 'v1'), ToyEnvironment(), Policy())
                 runtime.drain()
                 memory = ToyConsolidator(store).consolidate(store.memories(), 'regular', 0, 2048)[0]
-                example = memory.examples[0]
+                example = next(e for e in memory.examples if e.example_type == 'decision')
                 self.assertEqual(example.step, 1)
-                self.assertEqual(example.input_step, 0)
-                self.assertEqual(json.loads(example.prompt)['feedback'], '')
+                self.assertIsNone(example.input_step)
+                self.assertIn('Required next action:', json.loads(example.prompt)['feedback'])
                 self.assertTrue(ToyVerifier().verify_example(example, source))
                 self.assertFalse(ToyVerifier().verify_example(replace(example, target='renew_session'), source))
                 self.assertFalse(ToyVerifier().verify_example(replace(example, input_step=2), source))

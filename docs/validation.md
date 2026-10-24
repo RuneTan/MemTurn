@@ -2,7 +2,7 @@
 
 Updated: 2026-10-24. This is implementation evidence, not paper results.
 
-Latest isolated-environment regression run: **49 tests passed**. All 12 project
+Latest isolated-environment regression run: **62 tests passed**. All 12 project
 README locations have separate English and Chinese files with language links.
 
 Grouped-chain checks additionally cover raw HTTP response auditing, daily-limit
@@ -10,7 +10,7 @@ classification, a new allowance on explicit resume, source requeue without task
 double-counting, and held-out probes that leave learning state unchanged.
 
 Training/retrieval repairs additionally check complete shuffled sample coverage,
-fail-closed token budgets, replay-verified initial inputs, optional applicability
+fail-closed token budgets, unmodified source-state inputs, optional applicability
 scope, visible tool exchanges, memory-disabled evaluation and non-executable
 prompt placeholders. Fixed-bank local diagnostics reproduced 4/8 completion with
 the original implementation, 6/8 with scope alone, and 8/8 with the full tool
@@ -25,6 +25,15 @@ for historical reproduction. An eight-task real-LM/LoRA check completed all eigh
 with two publications and no background errors; `epoch_schedule_check.json` in
 `runs/static_sft_epoch1_20261024/` records actual sample/update counts. This does
 not establish that a single pass is sufficient for internalization.
+
+## Current mixed-supervision check
+
+The current typed QA/action path, original-environment boundary and growth
+accounting are documented in [implementation status](implementation_2026-10-24.md).
+Two real rank-8 Qwen3-1.7B jobs consumed all three mixed examples each. The QA
+probe still returned action JSON: optimizer coverage is verified, learning is
+not. No memory was retired by that interface fixture. Earlier toy measurements
+below are historical and do not validate the current native protocol.
 
 ## Checked locally
 
@@ -47,7 +56,7 @@ The exact final test count and run report paths are recorded in the delivery
 message and the ignored run artifacts. Test fixtures do not stand in for live
 model or environment integration.
 
-Local environment: Windows, Python 3.10.6, PyTorch 2.14.0+cu126. The installed CUDA
+Initial setup snapshot: Windows, Python 3.10.6, PyTorch 2.14.0+cu126. The installed CUDA
 build reports no kernels for the local RTX 5080 Laptop GPU, so the tiny check uses
 CPU. No global package changes or remote deployments were performed.
 
@@ -75,8 +84,8 @@ verifies the mixed backend path, not a measured learning advantage.
   hot loading. Local Qwen3-1.7B has been checked separately.
 - Hugging Face SFT against the actual remote target models. The complete backend
   has been exercised on local Qwen3-1.7B, not on remote Qwen3.5-9B.
-- Installed ALFWorld/ScienceWorld assets, fixed task manifests and replay/domain
-  verifiers. Automatic benchmark sample certification remains open and is gated.
+- Native interface checks do not complete fixed benchmark manifests or the domain
+  verifier. Automatic semantic certification remains open and is gated.
 - An actual trained Auto-Dreamer Consolidator checkpoint and faithful reproduction.
 - Long-run resource/service budgets, inference contention, remote crash recovery,
   quantitative advantage over baselines, and any contribution claim.

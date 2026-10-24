@@ -22,3 +22,5 @@ python run_memturn.py check-profile --profile configs/scienceworld.example.json
 `writer.groq.example.json` 和 `writer.gemini.example.json` 为本地任务模型配置独立的
 HTTP Writer。密钥只从指定的进程环境变量读取；Groq 已通过四任务接入检查，
 Gemini 尚未验证，见 [接入说明](../docs/writer_api.md)。
+
+`training_material` 默认为 `mixed`；`max_examples_per_job` 默认为 32，包含问答。`decision_only` 用于显式动作分类／历史诊断。`prepare_native_checks.py` 生成的原生进程清单与机器相关，只验证接口，不代表远程基准配置已完成。

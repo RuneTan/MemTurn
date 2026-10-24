@@ -103,8 +103,10 @@ class ToyPolicy:
             return state["feedback"].split(marker, 1)[1]
         condition = f"{state['family']}:{state['version']}"
         for memory in memories:
-            if memory.applicability == condition and memory.examples:
-                return memory.examples[0].target
+            if memory.applicability == condition:
+                decision = next((e for e in memory.examples if e.example_type == 'decision'), None)
+                if decision:
+                    return decision.target
             if memory.applicability == condition and "first call " in memory.content:
                 return memory.content.split("first call ", 1)[1].split(".", 1)[0]
         if self.learned_policy:

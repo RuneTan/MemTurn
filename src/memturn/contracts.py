@@ -21,6 +21,19 @@ class Example:
     prompt: str
     target: str
     input_step: int | None = None
+    example_type: str = "decision"
+    output_kind: str = "environment_action"
+    memory_ref: str = ""
+    covered_content_refs: tuple[str, ...] = ()
+    support_refs: tuple[Support, ...] = ()
+
+    @classmethod
+    def from_dict(cls, value):
+        data = dict(value)
+        data['covered_content_refs'] = tuple(data.get('covered_content_refs', ()))
+        data['support_refs'] = tuple(Support(**s) if isinstance(s, dict) else s
+                                     for s in data.get('support_refs', ()))
+        return cls(**data)
 
 
 @dataclass(frozen=True)
@@ -55,7 +68,7 @@ class Memory:
     def from_dict(cls, value):
         data = dict(value)
         data["supports"] = tuple(Support(**s) for s in data.get("supports", ()))
-        data["examples"] = tuple(Example(**e) for e in data.get("examples", ()))
+        data["examples"] = tuple(Example.from_dict(e) for e in data.get("examples", ()))
         data["parents"] = tuple(data.get("parents", ()))
         return cls(**data)
 
@@ -66,6 +79,30 @@ class Step:
     action: str
     feedback: str
     accepted: bool
+    evidence: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ExposedMemory:
+    ref: str
+    payload: str
+    task_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RetrievalEvent:
+    before_step: int
+    query: str | None
+    memories: tuple[ExposedMemory, ...]
+    remaining: int
+    error: str | None = None
+
+    @classmethod
+    def from_dict(cls, value):
+        data = dict(value)
+        data['memories'] = tuple(ExposedMemory(m['ref'], m['payload'], tuple(m.get('task_ids', ())))
+                                 for m in data.get('memories', ()))
+        return cls(**data)
 
 
 @dataclass(frozen=True)
@@ -88,14 +125,24 @@ class Episode:
     model_version: str = "base"
     elapsed_seconds: float = 0.0
     status: str = "completed"
+    retrievals: tuple[RetrievalEvent, ...] = ()
+    task_spec: dict = field(default_factory=dict)
 
     def to_dict(self):
         return asdict(self)
+
+    def public_dict(self):
+        value = self.to_dict()
+        value.pop('task_spec', None)
+        if self.family in ('scienceworld', 'alfworld'):
+            value.pop('condition', None)  # Dataset/version identifiers are not extra policy hints.
+        return value
 
     @classmethod
     def from_dict(cls, value):
         data = dict(value)
         data["steps"] = tuple(Step(**s) for s in data["steps"])
+        data['retrievals'] = tuple(RetrievalEvent.from_dict(s) for s in data.get('retrievals', ()))
         return cls(**data)
 
 
@@ -116,6 +163,7 @@ class Transition:
     done: bool
     accepted: bool = False
     success: bool = False
+    evidence: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

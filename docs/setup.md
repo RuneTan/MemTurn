@@ -61,7 +61,9 @@ ScienceWorld needs Java and its environment package. Pin its version: the
 [official README](https://github.com/allenai/ScienceWorld) documents changes that
 can affect trajectories. ALFWorld needs its text environment, game assets and
 YAML configuration; see its [official setup](https://github.com/alfworld/alfworld).
-Neither environment has been installed in this local checkout.
+Both are installed in a separate project Linux environment; see the current
+[implementation record](implementation_2026-10-24.md). This does not complete the
+domain verifier or remote deployment requirements above.
 
 After those checks, the real entry point is:
 

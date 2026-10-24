@@ -1,11 +1,11 @@
 """Model-independent orchestration with separate memory and model commits."""
-from dataclasses import replace
+from dataclasses import asdict, replace
 import queue
 import threading
 import time
 import uuid
 
-from ..contracts import Artifact, Episode, RetrievalResult, Step
+from ..contracts import Artifact, Episode, ExposedMemory, RetrievalEvent, RetrievalResult, Step
 from ..memory.policies import cold_region, pack_half, select_one
 from ..memory.retrieval import Retriever
 from ..memory.store import BudgetExceeded, StaleSnapshot
@@ -57,7 +57,11 @@ class Runtime:
 
     def run_task(self, task, environment, policy):
         started = time.monotonic()
-        steps, reward, success = [], 0.0, False
+        steps, retrievals, reward, success = [], [], 0.0, False
+        def remember(query, memories, remaining, error=None):
+            retrievals.append(RetrievalEvent(len(steps), query,
+                tuple(ExposedMemory(m.ref, m.payload, tuple(sorted(m.task_ids))) for m in memories),
+                remaining, error))
         evaluation = bool(task.metadata.get("evaluation_only", False))
         version, status = self.store.model_version, "failed_or_step_limit"
         try:
@@ -75,6 +79,7 @@ class Runtime:
                 searches = 0
                 search_limit = self.config.max_extra_searches if memory_enabled else 0
                 policy_history = [RetrievalResult(None, memories, search_limit)]
+                remember(None, memories, search_limit)
                 previous_queries = {}
                 for _ in range(task.max_steps):
                     if time.monotonic() - started >= task.metadata.get("timeout_seconds", float("inf")):
@@ -100,11 +105,12 @@ class Runtime:
                                 with self.access_lock:
                                     self.recent_refs.update(m.ref for m in memories)
                         policy_history.append(RetrievalResult(query, memories, search_limit - searches, error))
+                        remember(query, memories, search_limit - searches, error)
                         self.event("memory_search", task_id=task.id, query=query, error=error,
                                    remaining=search_limit - searches, refs=[m.ref for m in memories])
                         continue
                     transition = environment.step(action)
-                    step = Step(observation, action, transition.observation, transition.accepted)
+                    step = Step(observation, action, transition.observation, transition.accepted, transition.evidence)
                     steps.append(step)
                     policy_history.append(step)
                     reward += transition.reward
@@ -125,7 +131,7 @@ class Runtime:
             except Exception as error:
                 self.event("environment_cleanup_failed", task_id=task.id, error=type(error).__name__)
         episode = Episode(task.id, task.family, f"{task.family}:{task.version}", tuple(steps), reward,
-                          success, version, time.monotonic() - started, status)
+                          success, version, time.monotonic() - started, status, tuple(retrievals), asdict(task))
         if evaluation:
             self.event("evaluation_completed", **episode.to_dict())
             return episode
@@ -246,16 +252,18 @@ class Runtime:
         try:
             self.store.job(job_id, mode="regular", state="DATA_VALIDATED", selected=selected.ref,
                            support_tasks=self.validator.support_count(selected))
+            examples = self.validator.training_examples(selected)
             if getattr(self.learner, "accepts_memory_context", False):
                 allowed = self.training_memories(selected)
-                histories = {(e.task_id, e.step): self.store.episode(e.task_id).steps[:
-                             e.step if e.input_step is None else e.input_step]
-                             for e in selected.examples}
-                self.event("student_context", excluded=selected.ref, memory_refs=[m.ref for m in allowed])
-                artifact = self.learner.train(selected.examples, self.store.model_version,
+                # Fresh static inputs: do not inherit historical retrieval bodies or queries.
+                histories = {(e.task_id, e.step): self.store.episode(e.task_id).steps[:e.step]
+                             for e in examples if e.example_type == 'decision'}
+                self.event("student_context", excluded=selected.ref, memory_refs=[m.ref for m in allowed],
+                           example_types=[e.example_type for e in examples])
+                artifact = self.learner.train(examples, self.store.model_version,
                                               memory_context=allowed, histories=histories)
             else:
-                artifact = self.learner.train(selected.examples, self.store.model_version)
+                artifact = self.learner.train(examples, self.store.model_version)
             with self.access_lock:
                 self.candidate_versions.add(artifact.version)
             self.learner.prepare(artifact)

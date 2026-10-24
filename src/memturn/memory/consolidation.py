@@ -1,7 +1,9 @@
 """Offline fixture implementations. Model-backed implementations use the same contracts."""
 from collections import defaultdict
+from dataclasses import replace
 import hashlib
 from ..contracts import Example, Memory, Support
+from ..learning.materials import bind_example, rule_question
 
 
 class ToyWriter:
@@ -24,11 +26,10 @@ class ToyConsolidator:
         self.store = store
 
     def consolidate(self, region, mode, batch, output_budget):
-        from ..tasks.toy import ToyVerifier
         grouped = defaultdict(list)
         for memory in region:
             grouped[memory.applicability].append(memory)
-        outputs = []
+        outputs, remaining = [], self.store.config.max_examples_per_job
         for condition, parents in sorted(grouped.items()):
             refs = tuple(sorted({s for m in parents for s in m.supports}, key=lambda s: (s.task_id, s.step)))
             examples = []
@@ -36,11 +37,7 @@ class ToyConsolidator:
                 ep = self.store.episode(ref.task_id)
                 if ep and 0 <= ref.step < len(ep.steps):
                     step = ep.steps[ref.step]
-                    clean = Example(ref.task_id, ref.step, ep.steps[0].observation, step.action, input_step=0)
-                    if ToyVerifier().verify_example(clean, ep):
-                        examples.append(clean)
-                    else:
-                        examples.append(Example(ref.task_id, ref.step, step.observation, step.action))
+                    examples.append(Example(ref.task_id, ref.step, step.observation, step.action))
             if not examples:
                 continue
             actions = {e.target for e in examples}
@@ -48,8 +45,14 @@ class ToyConsolidator:
                 continue
             action = examples[0].target
             digest = hashlib.sha256("|".join(m.ref for m in parents).encode()).hexdigest()[:16]
-            outputs.append(Memory(f"summary_{digest}", f"For {condition}, first call {action}.",
-                                  condition, refs, tuple(examples[:32]) if mode == "regular" else (),
+            memory = Memory(f"summary_{digest}", f"For {condition}, first call {action}.",
+                                  condition, refs, (),
                                   tuple(m.ref for m in parents), created_batch=batch,
-                                  recency_anchor=max(m.recency_anchor for m in parents), consolidated=True))
+                                  recency_anchor=max(m.recency_anchor for m in parents), consolidated=True)
+            if mode == 'regular' and remaining >= 2:
+                decisions = tuple(bind_example(e, memory) for e in examples[:remaining-1])
+                material = (rule_question(memory), *decisions)
+                memory = replace(memory, examples=material)
+                remaining -= len(material)
+            outputs.append(memory)
         return tuple(outputs)

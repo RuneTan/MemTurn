@@ -2,7 +2,7 @@
 
 [English](learning_retrieval_repairs_2026-10-24.md) | [简体中文](learning_retrieval_repairs_2026-10-24.zh-CN.md)
 
-Historical repair snapshot: the later 2026-10-24 decision replaced the fixed-step
+Historical repair snapshot (source-state projection is retired; see [current implementation](implementation_2026-10-24.md)): the later 2026-10-24 decision replaced the fixed-step
 default with one full sample pass and accumulation one. Its current behavior is
 documented in [configuration](../configs/README.md). The measurements below are
 preserved; automatic accumulation growth is no longer the current default.

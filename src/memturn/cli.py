@@ -1,5 +1,6 @@
 """Offline commands have no network calls and require no model downloads."""
 import argparse
+from dataclasses import replace
 from collections import Counter
 from datetime import datetime, timezone
 import importlib.metadata
@@ -20,6 +21,8 @@ from .tokens import OfflineCounter
 
 def demo(args):
     config = Config.load(args.config) if args.config else Config()
+    if args.train_tiny:
+        config = replace(config, training_material='decision_only')
     output = Path(args.output or ("runs/demo_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))).resolve()
     output.mkdir(parents=True, exist_ok=True)
     if (output / "state.sqlite").exists():

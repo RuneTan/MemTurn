@@ -54,11 +54,11 @@ The current training profile shuffles and traverses selected samples once, with
 one sample per optimizer update and no automatic accumulation growth. Historical
 profiles with an explicit `steps` field retain their previous schedule. Jobs that
 cannot finish the requested passes within token/deadline limits are rejected. Actual consumed
-examples are recorded. For toy data only, simulator replay can verify an initial
-input paired with a later accepted action; `input_step` distinguishes that input
-from the original evidence step. Other domains require independent verification.
-Training history stops at the input step, preventing later feedback from leaking
-into projected inputs. Updates and sample coverage still do not certify mastery;
+examples are recorded. Current examples retain the exact source state and action;
+automatic source-state projection has been removed. Decision history stops before
+the source action. Historical retrieval bodies/queries are not copied into SFT
+inputs; permitted other memory is retrieved afresh before the static pass.
+Updates and sample coverage still do not certify mastery;
 the current publication policy does not contain a general behavioral mastery gate.
 
 Static SFT retrieves allowed other memories while preparing its inputs. Its
@@ -66,6 +66,16 @@ forward/backward loop does not execute new model-generated tools. The Writer
 keeps accepting new task evidence for an existing rule; there is no novelty-only
 admission filter. Within a task, bounded retrieval history may remain in context;
 new results do not have to replace old ones in a dedicated memory slot.
+
+The default `training_material: mixed` requires a source-linked rule question
+and at least one native decision example. Questions predict the selected content
+as plain text; decisions predict environment-action JSON. Each example names its
+memory version and covered content. Consolidation emits both kinds in the same
+operation; no additional teacher or rewriting agent is introduced. The 32-example
+event budget includes questions, which never increase task support. Invalid
+training material is stripped from otherwise valid external memory. No silent
+fallback to decision-only training occurs; that mode is explicit for the tiny
+classifier and historical diagnostics.
 
 ## Capacity maintenance
 
@@ -110,3 +120,8 @@ must be measured and constrained before the long-run experiments.
 The default lexical counter and retriever are development implementations. Remote
 profiles use the task tokenizer; retriever choice and revisions must be frozen
 for matched-budget comparisons. Audits are not returned through memory tools.
+
+`stats.growth` records cumulative admitted tokens and net releases from regular
+consolidation, internalization and capacity maintenance, plus an initial baseline
+for existing stores. Counters update in the same transaction as memory changes.
+They support growth analysis; no adaptive scheduler has been activated.

@@ -118,8 +118,10 @@ def main(args):
         clean = []
         for ep in first:
             index = next(i for i,s in enumerate(ep.steps) if s.accepted)
-            example = Example(ep.task_id,index,ep.steps[0].observation,ep.steps[index].action,input_step=0)
-            if not ToyVerifier().verify_example(example,ep): raise AssertionError('clean projection failed replay')
+            input_step = 0 if args.legacy_projection else index
+            example = Example(ep.task_id,index,ep.steps[input_step].observation,ep.steps[index].action,
+                              input_step=0 if args.legacy_projection else None)
+            if not ToyVerifier().verify_example(example,ep): raise AssertionError('source example failed replay')
             clean.append(example)
         values = dict(training,model_id=str(ROOT/settings['path']),model_revision=settings['revision'],device=settings['device'],dtype=settings['dtype'])
         values['target_modules'] = tuple(values['target_modules'])
@@ -128,12 +130,13 @@ def main(args):
             values.pop('steps',None)
             values['epochs'] = args.training_epochs
         if args.training_token_budget is not None: values['max_training_tokens'] = args.training_token_budget
-        (root/'training_config.json').write_text(dumps(dict(values,data=args.training_data)),encoding='utf-8')
+        (root/'training_config.json').write_text(dumps(dict(values,data=args.training_data,
+            legacy_projection=args.legacy_projection,scope='historical decision-only diagnostic')),encoding='utf-8')
         learner = HuggingFaceLearner(root/'adapters',SFTConfig(**values),backend)
         for example in clean:
             ids, labels = supervised_tokens(backend.tokenizer,example.prompt,example.target,values['max_length'])
             prefix = next(i for i,t in enumerate(labels) if t != -100)
-            if 'Required next action:' in backend.tokenizer.decode(ids[:prefix]):
+            if args.legacy_projection and 'Required next action:' in backend.tokenizer.decode(ids[:prefix]):
                 raise AssertionError('corrective feedback leaked into clean training input')
         (root/'training_examples.json').write_text(dumps([asdict(e) for e in clean]),encoding='utf-8')
         torch.manual_seed(42)
@@ -173,6 +176,8 @@ if __name__=='__main__':
     parser.add_argument('--output',required=True)
     parser.add_argument('--baseline-revision',default='c0a1d01')
     parser.add_argument('--training-only',action='store_true')
+    parser.add_argument('--legacy-projection',action='store_true',
+                        help='Reproduce the retired toy-only initial-state projection; not the current protocol')
     parser.add_argument('--training-data',choices=('first_group','balanced_rules'),default='first_group')
     training_length=parser.add_mutually_exclusive_group()
     training_length.add_argument('--training-steps',type=int)

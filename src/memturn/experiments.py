@@ -37,6 +37,9 @@ def inspect_profile(profile):
 
 
 def environment_for(settings):
+    if settings.get('worker_command'):
+        from .tasks.process import ProcessEnvironment
+        return ProcessEnvironment(settings)
     if settings["kind"] == "scienceworld":
         from .tasks.scienceworld import ScienceWorldEnvironment
         return ScienceWorldEnvironment(jar_path=settings.get("jar_path"),

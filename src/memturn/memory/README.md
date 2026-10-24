@@ -13,3 +13,5 @@ Text, sources/samples, metadata, snapshots and database pages have separate limi
 An environment may provide an explicit public applicability scope to retrieval.
 The toy adapter excludes incompatible family/version rules; unscoped environments
 keep lexical retrieval. This is not a general semantic relevance solution.
+
+`stats.growth` separates admitted tokens from regular-consolidation, internalization and capacity releases, using transactional cumulative counters. It measures growth without activating adaptive scheduling. Mixed training validation checks ownership, covered content, typed targets and independent source support; invalid training material does not discard otherwise valid external memory.

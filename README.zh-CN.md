@@ -8,6 +8,8 @@ MemTurn 研究如何让 Agent 面对持续变化的任务流，在有限外部�
 
 **当前状态：可执行研究原型。** 记忆生命周期测试与微型梯度训练已在本机运行；独立的 Qwen3-1.7B 后端用于本地 GPU 接入检查。ScienceWorld、ALFWorld、原版训练后的 Auto-Dreamer Consolidator 和长程对照实验仍待完成。工程检查尚不能证明研究优势。
 
+本轮落实：[混合监督、原生环境和增长统计](docs/implementation_2026-10-24.zh-CN.md)。
+
 最新调查：[训练与检索修复](docs/learning_retrieval_repairs_2026-10-24.zh-CN.md)，包含定向
 修改、实测结果和参数化学习仍未解决的部分。
 

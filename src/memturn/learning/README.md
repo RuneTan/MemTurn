@@ -16,5 +16,7 @@ automatic increase in accumulation in epoch mode. Token/deadline limits still
 apply: incomplete passes prevent publication and memory exit. Explicit `steps`
 settings retain the legacy schedule for historical profiles and diagnostics.
 Artifacts record consumed source/input steps and hashes.
-The toy adapter can replay-verify an initial-state input; other domains require
-their own verifier. A successful optimizer update does not certify mastery.
+The current path keeps original source states/actions and excludes historical
+retrievals from training history. A successful update does not certify mastery.
+
+`materials.py` binds samples to memory versions/content, separates text QA from action JSON and constructs typed static training prompts. Default `mixed` requires both types; the 32-example budget includes QA. `tiny_lora.py` explicitly accepts decision-only classification. See [current protocol](../../../docs/implementation_2026-10-24.md).

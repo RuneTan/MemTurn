@@ -23,6 +23,8 @@ daily-limit classification and raw-response audit records. Core tests also check
 deferred-source replay and that held-out probes leave learning state unchanged.
 
 `test_learning_retrieval_repairs.py` checks complete sample coverage, fail-closed
-training budgets, replay-verified initial inputs, applicability scopes, visible
+training budgets, unmodified source-state inputs, applicability scopes, visible
 tool transcripts, memory-disabled evaluation and separation of tool errors from
 environment evidence. It also guards against copyable command placeholders.
+
+`test_mixed_materials.py` covers typed mixed training, source/content ownership, leakage rejection, no silent action-only fallback, actual retrieval exposure, public/private separation, growth accounting/rollback, replay tampering and separate-worker restart. Current regression: 62 tests. Native simulator and real-LM checks are separate scripts, not unit-test performance claims.

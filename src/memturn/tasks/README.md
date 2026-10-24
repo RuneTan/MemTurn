@@ -7,10 +7,11 @@ Adapters implement `reset(task)`, `step(action)` and `close()`. A separate verif
 `toy.py` contains two stateful development families with changing versions, a visible action vocabulary and corrective feedback. The task model sees public observations, not the verifier's answer table.
 
 Its optional `retrieval_scope(observation)` exposes public family/version
-compatibility. Its verifier can replay-check a later accepted preparation action
-on the recorded initial input, with distinct input/evidence step indices. This
-projection must not be assumed valid in other environments.
+compatibility. Historical toy projection remains available only for explicitly named legacy
+diagnostics; the current Validator rejects projected training inputs.
 
-`scienceworld.py` and `alfworld.py` isolate optional simulator dependencies. Their wrapper contracts are tested with fake environments; actual assets and benchmark verifiers remain pending. `webarena.py` is a deferred stub.
+`scienceworld.py` and `alfworld.py` isolate optional simulator dependencies. They support original native environments through the isolated process adapter; domain evidence verification remains pending. `webarena.py` is a deferred stub.
 
 `verification.py` rejects uncertified benchmark evidence. Task success alone does not certify all intermediate steps. Environment assets and credentials are excluded from Git.
+
+`process.py` separates native simulator dependencies from the model process. `NativeReplayVerifier` checks replayed observations, feedback, native evidence, reward and success, with a bounded cache. Summary support additionally requires a separate domain predicate; admissibility and final success do not certify arbitrary free-text conclusions. See [implementation status](../../../docs/implementation_2026-10-24.md).

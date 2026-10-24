@@ -17,6 +17,7 @@ secrets*.json
 # Python environments and generated caches
 /.venv/
 /.venv-local/
+/.venv-native-linux/
 /venv/
 __pycache__/
 *.py[cod]

@@ -9,15 +9,17 @@ import time
 import uuid
 
 from ..contracts import Artifact, dumps
-from ..models.http import environment_action, task_messages
+from ..models.http import environment_action
+from .materials import training_messages
 
 
-def supervised_tokens(tokenizer, prompt, target, max_length, memories=(), history=()):
+def supervised_tokens(tokenizer, prompt, target, max_length, memories=(), history=(), output_kind='environment_action'):
     """Reject unstable template prefixes and overlong samples; never truncate targets."""
-    messages = task_messages(prompt, memories, history)
+    messages = training_messages(prompt, memories, history, output_kind)
+    target_text = environment_action(target) if output_kind == 'environment_action' else target
     kwargs = {"tokenize": False, "enable_thinking": False}
     prefix = tokenizer.apply_chat_template(messages, add_generation_prompt=True, **kwargs)
-    full = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": environment_action(target)}],
+    full = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": target_text}],
                                          add_generation_prompt=False, **kwargs)
     prefix_ids = tokenizer.encode(prefix, add_special_tokens=False)
     full_ids = tokenizer.encode(full, add_special_tokens=False)
@@ -102,7 +104,7 @@ class HuggingFaceLearner:
         for example in examples:
             history = (histories or {}).get((example.task_id, example.step), ())
             ids, labels = supervised_tokens(tokenizer, example.prompt, example.target, cfg.max_length,
-                                           memory_context, history)
+                                           memory_context, history, example.output_kind)
             if tokens + len(ids) > cfg.max_training_tokens:
                 raise ValueError("training token budget cannot cover all selected examples; memory must be retained")
             batches.append((ids, labels))
@@ -163,6 +165,9 @@ class HuggingFaceLearner:
                 step_loss += float(output.loss.detach()) / len(microbatches)
                 example = examples[index]
                 consumed.append({"index": index, "task_id": example.task_id, "source_step": example.step,
+                                 "example_type":example.example_type, "output_kind":example.output_kind,
+                                 "memory_ref":example.memory_ref,
+                                 "covered_content_refs":list(example.covered_content_refs),
                                  "input_step": example.step if example.input_step is None else example.input_step,
                                  "optimizer_step": step, "tokens": len(ids),
                                  "input_sha256": hashlib.sha256(example.prompt.encode()).hexdigest()})
@@ -187,6 +192,8 @@ class HuggingFaceLearner:
                    "planned_optimizer_steps": len(schedule),
                    "processed_training_tokens": processed_tokens,
                    "validated_examples": len(examples), "unique_consumed_examples": len({r['index'] for r in consumed}),
+                   "examples_by_type":{kind:sum(e.example_type==kind for e in examples)
+                                       for kind in sorted({e.example_type for e in examples})},
                    "sample_coverage": 1.0, "consumed_examples": consumed,
                    "configured_gradient_accumulation": cfg.gradient_accumulation,
                    "effective_gradient_accumulation": len(schedule[0]), "sampling_seed": cfg.seed,

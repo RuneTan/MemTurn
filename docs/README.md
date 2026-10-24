@@ -4,6 +4,7 @@
 
 | Document | Purpose |
 | --- | --- |
+| [Implementation status](implementation_2026-10-24.md) | Mixed supervision, native environment boundary and growth counters |
 | [Architecture](architecture.md) | Components, data flow and policy boundaries |
 | [Setup](setup.md) | Offline development and remote prerequisites |
 | [Local model](local_model.md) | Isolated GPU model setup and measured integration checks |
