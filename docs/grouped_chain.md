@@ -13,8 +13,10 @@ rules within two synthetic families, not 500 distinct skills or benchmark tasks.
 
 The local task model is Qwen3-1.7B; Groq GPT-OSS 120B is the Writer. Consolidation
 uses the deterministic development implementation. Fixed-rank LoRA continues
-from the published version, with the existing two-step SFT job every eligible
-four-task batch. All task and memory budgets match the local profile.
+from the published version. The current profile performs one shuffled pass over
+the selected entry's samples, one optimizer update per sample, after an eligible
+four-task batch. The original pilot used a two-update engineering setting; that
+was not an architectural requirement. All task and memory budgets match the local profile.
 
 ## Quota policy
 

@@ -2,6 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+Epoch-schedule checks verify that all selected examples receive one update each
+and that a final short microbatch is retained. Legacy schedule checks remain for
+historical-profile compatibility.
+
 Run core regression checks from the checkout:
 
 ```text

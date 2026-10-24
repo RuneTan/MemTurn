@@ -4,6 +4,9 @@
 
 `smoke.json` 用于标准库小环境；`local_qwen3_1_7b.json` 固定本地 GPU 模型、tokenizer 和 SFT 参数。ScienceWorld 与 ALFWorld 文件是尚待补齐的远程模板。
 
+当前语言模型配置使用 `epochs: 1`、梯度累积为一：将选中条目的样本遍历一遍，每条
+样本更新一次。token 和时限仍有效。显式 `steps` 保留给旧运行配置和历史诊断。
+
 ```text
 python run_memturn.py check-profile --profile configs/scienceworld.example.json
 ```

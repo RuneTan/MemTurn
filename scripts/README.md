@@ -26,3 +26,5 @@ revision: fixed-bank retrieval ablations, replay-verified SFT data, actual sampl
 coverage and held-out first actions. It writes to a new run directory and never
 resumes the source experiment or contacts Groq. Training-only calibration flags
 can vary the fixed dataset and explicit step/token budgets.
+`--training-epochs 1` selects the current complete-pass schedule when checking an
+old run; it is mutually exclusive with `--training-steps`.

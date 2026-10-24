@@ -124,6 +124,9 @@ def main(args):
         values = dict(training,model_id=str(ROOT/settings['path']),model_revision=settings['revision'],device=settings['device'],dtype=settings['dtype'])
         values['target_modules'] = tuple(values['target_modules'])
         if args.training_steps is not None: values['steps'] = args.training_steps
+        if args.training_epochs is not None:
+            values.pop('steps',None)
+            values['epochs'] = args.training_epochs
         if args.training_token_budget is not None: values['max_training_tokens'] = args.training_token_budget
         (root/'training_config.json').write_text(dumps(dict(values,data=args.training_data)),encoding='utf-8')
         learner = HuggingFaceLearner(root/'adapters',SFTConfig(**values),backend)
@@ -137,7 +140,9 @@ def main(args):
         artifact = learner.train(tuple(clean),'base',histories={(e.task_id,e.step):() for e in clean})
         learner.prepare(artifact)
         record({'stage':'training','regime':'clean_full_coverage','metrics':artifact.metrics,'artifact':asdict(artifact)})
-        for label, version in (('base','base'),(f'clean_{values["steps"]}_step',artifact.version)):
+        trained_label = (f'clean_{values["steps"]}_step' if values.get('steps') is not None
+                         else f'clean_{values.get("epochs",1)}_epoch')
+        for label, version in (('base','base'),(trained_label,artifact.version)):
             policy = ChatPolicy(backend.role('training_evaluation',settings['task_max_new_tokens']))
             for ci, condition in enumerate(PREPARE):
                 family, version_label = condition.split(':')
@@ -169,6 +174,8 @@ if __name__=='__main__':
     parser.add_argument('--baseline-revision',default='c0a1d01')
     parser.add_argument('--training-only',action='store_true')
     parser.add_argument('--training-data',choices=('first_group','balanced_rules'),default='first_group')
-    parser.add_argument('--training-steps',type=int)
+    training_length=parser.add_mutually_exclusive_group()
+    training_length.add_argument('--training-steps',type=int)
+    training_length.add_argument('--training-epochs',type=int)
     parser.add_argument('--training-token-budget',type=int)
     main(parser.parse_args())

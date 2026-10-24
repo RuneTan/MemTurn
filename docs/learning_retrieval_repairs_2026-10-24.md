@@ -2,6 +2,11 @@
 
 [English](learning_retrieval_repairs_2026-10-24.md) | [简体中文](learning_retrieval_repairs_2026-10-24.zh-CN.md)
 
+Historical repair snapshot: the later 2026-10-24 decision replaced the fixed-step
+default with one full sample pass and accumulation one. Its current behavior is
+documented in [configuration](../configs/README.md). The measurements below are
+preserved; automatic accumulation growth is no longer the current default.
+
 Retrieval had reproducible interface defects; training had sample-coverage and
 objective problems. Those implementation defects have been repaired and targeted
 local execution has improved. Effective parametric learning remains incomplete.

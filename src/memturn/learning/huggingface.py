@@ -29,7 +29,7 @@ def supervised_tokens(tokenizer, prompt, target, max_length, memories=(), histor
 
 
 def training_schedule(size, steps, accumulation, seed):
-    """Cover every sample before repeats, within the requested optimizer steps."""
+    """Legacy step-capped schedule retained for historical profiles/diagnostics."""
     if min(size, steps, accumulation) <= 0:
         raise ValueError("training schedule requires positive sizes")
     effective = max(accumulation, math.ceil(size / steps))
@@ -39,6 +39,18 @@ def training_schedule(size, steps, accumulation, seed):
         rng.shuffle(epoch)
         order.extend(epoch)
     return tuple(tuple(order[i:i + effective]) for i in range(0, steps * effective, effective))
+
+
+def epoch_schedule(size, epochs, accumulation, seed):
+    """Traverse each example once per epoch, without growing accumulation."""
+    if min(size, epochs, accumulation) <= 0:
+        raise ValueError("epoch schedule requires positive sizes")
+    schedule, rng = [], random.Random(seed)
+    for _ in range(epochs):
+        order = list(range(size))
+        rng.shuffle(order)
+        schedule.extend(tuple(order[i:i + accumulation]) for i in range(0, size, accumulation))
+    return tuple(schedule)
 
 
 @dataclass(frozen=True)
@@ -52,18 +64,21 @@ class SFTConfig:
     rank: int = 8
     alpha: int = 16
     learning_rate: float = 5e-5
-    steps: int = 8
-    gradient_accumulation: int = 4
+    steps: int | None = None
+    epochs: int = 1
+    gradient_accumulation: int = 1
     max_length: int = 2048
     max_training_tokens: int = 16384
     max_seconds: float = 1200.0
     seed: int = 42
 
     def __post_init__(self):
-        for name in ("rank", "alpha", "learning_rate", "steps", "gradient_accumulation",
+        for name in ("rank", "alpha", "learning_rate", "epochs", "gradient_accumulation",
                      "max_length", "max_training_tokens", "max_seconds"):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
+        if self.steps is not None and self.steps <= 0:
+            raise ValueError("legacy steps must be positive when supplied")
 
 
 class HuggingFaceLearner:
@@ -94,6 +109,8 @@ class HuggingFaceLearner:
             tokens += len(ids)
         if not batches:
             raise ValueError("no valid SFT data fits the token budget")
+        if cfg.steps is None and tokens * cfg.epochs > cfg.max_training_tokens:
+            raise ValueError("training token budget cannot cover the requested complete passes; memory must be retained")
         allowed = {"AutoModelForCausalLM", "AutoModelForMultimodalLM", "AutoModelForImageTextToText"}
         if cfg.loader_class not in allowed:
             raise ValueError("unsupported model loader")
@@ -116,7 +133,9 @@ class HuggingFaceLearner:
         before = [p.detach().cpu().clone() for _, p in trainable]
         optimizer = torch.optim.AdamW([p for _, p in trainable], lr=cfg.learning_rate)
         losses, processed_tokens, consumed = [], 0, []
-        schedule = training_schedule(len(batches), cfg.steps, cfg.gradient_accumulation, cfg.seed)
+        schedule = (epoch_schedule(len(batches), cfg.epochs, cfg.gradient_accumulation, cfg.seed)
+                    if cfg.steps is None else training_schedule(len(batches), cfg.steps,
+                                                               cfg.gradient_accumulation, cfg.seed))
         model.train()
         for step, indices in enumerate(schedule):
             if time.monotonic() - started >= cfg.max_seconds:
@@ -154,6 +173,8 @@ class HuggingFaceLearner:
             losses.append(step_loss)
         if {row["index"] for row in consumed} != set(range(len(batches))):
             raise RuntimeError("incomplete training sample coverage; memory must be retained")
+        if cfg.steps is None and len(consumed) != len(batches) * cfg.epochs:
+            raise RuntimeError("incomplete requested training passes; memory must be retained")
         if not losses or not any(not torch.equal(old, p.detach().cpu()) for old, (_, p) in zip(before, trainable)):
             raise RuntimeError("no optimizer update reached the adapter")
         version = "hf_" + uuid.uuid4().hex
@@ -161,6 +182,9 @@ class HuggingFaceLearner:
         model.save_pretrained(path, safe_serialization=True)
         checksums = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in path.iterdir() if p.is_file()}
         metrics = {"steps": len(losses), "losses": losses, "unique_training_tokens": tokens,
+                   "schedule_mode": "epochs" if cfg.steps is None else "legacy_steps",
+                   "requested_epochs": cfg.epochs if cfg.steps is None else None,
+                   "planned_optimizer_steps": len(schedule),
                    "processed_training_tokens": processed_tokens,
                    "validated_examples": len(examples), "unique_consumed_examples": len({r['index'] for r in consumed}),
                    "sample_coverage": 1.0, "consumed_examples": consumed,

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from memturn.config import Config
 from memturn.contracts import Example, Memory, RetrievalResult, Support, Task
-from memturn.learning.huggingface import HuggingFaceLearner, SFTConfig, training_schedule
+from memturn.learning.huggingface import HuggingFaceLearner, SFTConfig, epoch_schedule, training_schedule
 from memturn.memory.consolidation import ToyConsolidator, ToyWriter
 from memturn.memory.retrieval import Retriever
 from memturn.memory.store import Store
@@ -20,6 +20,19 @@ from memturn.tokens import OfflineCounter
 
 
 class LearningRetrievalRepairs(unittest.TestCase):
+    def test_epoch_mode_covers_all_examples_with_one_update_per_example(self):
+        for size in (2, 4, 9):
+            schedule = epoch_schedule(size, 1, 1, 42)
+            self.assertEqual(len(schedule), size)
+            self.assertTrue(all(len(batch) == 1 for batch in schedule))
+            self.assertEqual(sorted(sum(schedule, ())), list(range(size)))
+
+    def test_epoch_mode_does_not_drop_the_last_partial_microbatch(self):
+        schedule = epoch_schedule(5, 2, 2, 42)
+        self.assertEqual([len(batch) for batch in schedule], [2, 2, 1, 2, 2, 1])
+        self.assertEqual(sorted(sum(schedule[:3], ())), list(range(5)))
+        self.assertEqual(sorted(sum(schedule[3:], ())), list(range(5)))
+
     def test_small_optimizer_budget_still_covers_every_sample(self):
         schedule = training_schedule(4, 2, 1, 42)
         self.assertEqual(len(schedule), 2)

@@ -10,9 +10,11 @@ Public source history and permitted external memory are supplied after runtime e
 
 See [validation](../../../docs/validation.md) for actual model checks and pending remote compatibility.
 
-The shuffled schedule covers every selected example before repeating. Gradient
-accumulation grows when needed to cover the data within the configured optimizer
-steps. Token/deadline limits still apply: incomplete coverage prevents publication
-and memory exit. Artifacts record consumed source/input steps and hashes.
+The current profile uses one shuffled pass (`epochs: 1`) and accumulation one:
+each example produces one optimizer update. There is no fixed two-update cap or
+automatic increase in accumulation in epoch mode. Token/deadline limits still
+apply: incomplete passes prevent publication and memory exit. Explicit `steps`
+settings retain the legacy schedule for historical profiles and diagnostics.
+Artifacts record consumed source/input steps and hashes.
 The toy adapter can replay-verify an initial-state input; other domains require
 their own verifier. A successful optimizer update does not certify mastery.

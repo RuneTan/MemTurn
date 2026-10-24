@@ -50,15 +50,22 @@ and version define incompatible rules, so it filters those conditions exactly;
 unscoped environments retain lexical retrieval. This is not a universal filter
 for transferable knowledge.
 
-Training plans shuffle samples, cover each selected example before repetitions,
-and adjust accumulation to fit the configured optimizer steps. They reject jobs
-that cannot cover the selected data within token/deadline limits. Actual consumed
+The current training profile shuffles and traverses selected samples once, with
+one sample per optimizer update and no automatic accumulation growth. Historical
+profiles with an explicit `steps` field retain their previous schedule. Jobs that
+cannot finish the requested passes within token/deadline limits are rejected. Actual consumed
 examples are recorded. For toy data only, simulator replay can verify an initial
 input paired with a later accepted action; `input_step` distinguishes that input
 from the original evidence step. Other domains require independent verification.
 Training history stops at the input step, preventing later feedback from leaking
 into projected inputs. Updates and sample coverage still do not certify mastery;
 the current publication policy does not contain a general behavioral mastery gate.
+
+Static SFT retrieves allowed other memories while preparing its inputs. Its
+forward/backward loop does not execute new model-generated tools. The Writer
+keeps accepting new task evidence for an existing rule; there is no novelty-only
+admission filter. Within a task, bounded retrieval history may remain in context;
+new results do not have to replace old ones in a dedicated memory slot.
 
 ## Capacity maintenance
 

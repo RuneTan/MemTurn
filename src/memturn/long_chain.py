@@ -61,7 +61,7 @@ def run_chain(profile_path, writer_profile, output, tasks=500, group_size=20,
     os.environ.setdefault("HF_HOME", str(project / ".cache" / "huggingface"))
     spec = {"profile": profile, "writer": writer_config, "tasks": tasks,
             "group_size": group_size, "writer_token_budget": writer_token_budget,
-            "protocol_version": "retrieval-transcript-v3-sft-coverage-v2",
+            "protocol_version": "retrieval-history-v3-static-sft-epoch-v1",
             "scope": "exploratory_grouped_toy_stream_not_formal_benchmark"}
     fingerprint = hashlib.sha256(dumps(spec).encode()).hexdigest()
     root = Path(output).resolve()

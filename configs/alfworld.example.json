@@ -47,7 +47,7 @@
     "rank": 8,
     "alpha": 16,
     "learning_rate": 0.00005,
-    "steps": 8,
+    "epochs": 1,
     "max_length": 2048,
     "device": "cuda:0"
   }

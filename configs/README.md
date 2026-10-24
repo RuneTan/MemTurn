@@ -4,6 +4,10 @@
 
 `smoke.json` runs the standard-library fixture. `local_qwen3_1_7b.json` pins the local GPU model, tokenizer and SFT settings. The ScienceWorld and ALFWorld examples are incomplete remote templates.
 
+Current LM profiles use `epochs: 1` with accumulation one: traverse the selected
+entry's samples once, with one update per sample. Token/time limits still apply.
+Explicit `steps` remains a legacy setting for old run profiles and diagnostics.
+
 ```text
 python run_memturn.py check-profile --profile configs/scienceworld.example.json
 ```

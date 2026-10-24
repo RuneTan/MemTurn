@@ -2,7 +2,7 @@
 
 Updated: 2026-10-24. This is implementation evidence, not paper results.
 
-Latest isolated-environment regression run: **47 tests passed**. All 12 project
+Latest isolated-environment regression run: **49 tests passed**. All 12 project
 README locations have separate English and Chinese files with language links.
 
 Grouped-chain checks additionally cover raw HTTP response auditing, daily-limit
@@ -18,6 +18,13 @@ protocol. An eight-task real-LM/LoRA fixture run reached 8/8 after placeholder
 removal, with two publications and no background errors. Learning remains
 incomplete: a fixed balanced-data calibration reached 25% first-action accuracy
 with two steps and 50% with 32. See [investigation and limits](learning_retrieval_repairs_2026-10-24.md).
+
+The subsequently confirmed default uses one complete sample pass (`epochs: 1`),
+one sample per update and accumulation one. Fixed-step profiles remain supported
+for historical reproduction. An eight-task real-LM/LoRA check completed all eight
+with two publications and no background errors; `epoch_schedule_check.json` in
+`runs/static_sft_epoch1_20261024/` records actual sample/update counts. This does
+not establish that a single pass is sufficient for internalization.
 
 ## Checked locally
 
