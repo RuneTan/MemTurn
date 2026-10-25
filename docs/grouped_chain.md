@@ -1,5 +1,7 @@
 # Grouped exploratory task stream
 
+[English](grouped_chain.md) | [简体中文](grouped_chain.zh-CN.md)
+
 This is a qualitative development check, not a formal continual-learning result.
 
 The current runner freezes a protocol version as well as settings. The original

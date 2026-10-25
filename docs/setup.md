@@ -1,5 +1,7 @@
 # Development and remote setup
 
+[English](setup.md) | [简体中文](setup.zh-CN.md)
+
 ## Local checks
 
 Python 3.10+ is sufficient for the memory-only fixture; it uses the standard
@@ -76,6 +78,6 @@ The provided profiles intentionally contain unresolved fields and cannot launch
 formal experiments unchanged. They now include bounded periodic arrivals and explicit `--resume`, with an immutable
 manifest and bounded out-of-order completion window. A narrow observed-transition
 verifier is available; free-form semantic claims remain gated. See
-[cluster handoff](cluster_handoff.zh-CN.md) for process deadlines, quotas, deployment
+[cluster handoff](cluster_handoff.md) for process deadlines, quotas, deployment
 attestation, the matrix driver and remaining cluster acceptance. Distributed SFT
 and measured serving SLAs are not established by the offline fixture.

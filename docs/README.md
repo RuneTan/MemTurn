@@ -2,19 +2,22 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+Every document has English and Simplified Chinese versions. Plain `.md` files are English; `.zh-CN.md` files are Chinese. Use the language links at the top to switch; other navigation stays in the selected language.
+
 | Document | Purpose |
 | --- | --- |
-| [Implementation status](implementation_2026-10-24.md) | Mixed supervision, native environment boundary and growth counters |
+| [Cluster setup and handoff](cluster_handoff.md) | Deployment, configuration, budgets and acceptance boundaries |
 | [Architecture](architecture.md) | Components, data flow and policy boundaries |
-| [Setup](setup.md) | Offline development and remote prerequisites |
-| [Local model](local_model.md) | Isolated GPU model setup and measured integration checks |
-| [External Writer](writer_api.md) | Free-tier candidates and independent API configuration |
-| [Grouped chain](grouped_chain.md) | Exploratory task groups, quotas, probes and clean resume |
-| [2026-10-23 pilot](exploratory_chain_2026-10-23.md) | Actual 182-task results and qualified findings |
-| [Learning/retrieval repairs](learning_retrieval_repairs_2026-10-24.md) | Source investigation, targeted fixes, local checks and remaining learning limits |
-| [Validation](validation.md) | Checked behavior and remaining work |
-| [Literature](literature.md) | Primary papers and attribution |
+| [Setup](setup.md) | Offline checks and remote prerequisites |
+| [Local model](local_model.md) | Isolated GPU setup and measured integration checks |
+| [External Writer](writer_api.md) | Provider configuration and recorded API checks |
+| [Grouped task stream](grouped_chain.md) | Exploratory groups, quotas, probes and clean resume |
+| [Adapter archive and recovery](adapter_archive_recovery.md) | Verified cleanup, manual restoration and resource boundaries |
+| [Validation status](validation.md) | Current evidence and remaining checks |
+| [Implementation record: 2026-10-24](implementation_2026-10-24.md) | Mixed supervision, native environments and growth accounting |
+| [Audit and repairs: 2026-10-24](audit_repairs_2026-10-24.md) | Historical repairs and their validation limits |
+| [Learning and retrieval repairs](learning_retrieval_repairs_2026-10-24.md) | Targeted fixes and remaining learning limits |
+| [Exploratory pilot: 2026-10-23](exploratory_chain_2026-10-23.md) | Recorded 182-task results and qualified findings |
+| [Literature](literature.md) | Primary sources and attribution |
 
-Private research notes remain outside the checkout. Update these documents alongside code. Directory READMEs are bilingual; the detailed technical documents are currently in English.
-
-Latest delivery: [cluster handoff and engineering completion](cluster_handoff.zh-CN.md). Formal model selection is pending collaborator discussion.
+Dated implementation, repair and pilot reports preserve their historical state. Use validation status and cluster handoff for current progress.

@@ -1,6 +1,8 @@
 # 孤立候选模型的归档与恢复
 
-2026-10-24：用户明确授权采用“先归档、核验可恢复，再清理”。此前被拒绝的直接清理方案没有执行；本次实现以完整副本及校验清单为清理前提。
+[English](adapter_archive_recovery.md) | [简体中文](adapter_archive_recovery.zh-CN.md)
+
+2026-10-24：孤立候选采用“先归档、核验可恢复，再清理”的处理顺序。完整副本及文件校验清单是清理前提。
 
 ## 启动恢复
 
@@ -20,10 +22,10 @@
 在项目目录、项目 Python 环境中运行：
 
 ```powershell
-.\.venv-local\Scripts\python.exe -m scripts.restore_adapter_archive <归档目录> <尚不存在的恢复目录>
+.\.venv-local\Scripts\python.exe -m scripts.restore_adapter_archive <ARCHIVE_DIRECTORY> <NEW_RESTORE_DIRECTORY>
 ```
 
-恢复前后都核对完整文件清单与校验值；已有目标目录不会被覆盖。该命令只恢复文件，不改变数据库当前模型指针，不把未提交候选变成当前模型。需要继续使用历史模型时，仍须核对其来源、模型配置和提交状态。
+将占位符分别替换为归档目录和尚不存在的恢复目录。恢复前后都核对完整文件清单与校验值；已有目标目录不会被覆盖。该命令只恢复文件，不改变数据库当前模型指针，不把未提交候选变成当前模型。需要继续使用历史模型时，仍须核对其来源、模型配置和提交状态。
 
 ## 资源与验证边界
 

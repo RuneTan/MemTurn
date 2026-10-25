@@ -77,7 +77,7 @@ def build(output, name, summary_path):
     (validation/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
     readme = '''# MemTurn 合作研究交付包
 
-日期：2026-10-24。供研究协作审阅和部署准备；正式模型、集群资源与实验方案尚未选定。没有执行远程部署或正式实验。
+工程验证日期：2026-10-24。供研究协作审阅和部署准备；正式模型、集群资源与实验方案尚未选定。没有执行远程部署或正式实验。
 
 建议按以下顺序阅读：
 
@@ -101,7 +101,7 @@ python -X utf8 run_memturn.py demo --config configs/smoke.json --output runs/fir
 
 本包包含源码、研究设计文档、安装与调度模板、测试、故障恢复说明和经过筛选的验证报告；不包含密钥、Git 历史、模型权重、虚拟环境、完整任务轨迹或全部历史运行目录。MANIFEST.json 记录逐文件 SHA-256；它用于传输完整性检查，不是数字签名。请将整个目录或同名 ZIP 一并发送。
 
-三份主文档已按当前实现精简同步；部分技术记录保留早期测试与修复历史，请留意其日期和历史说明。早期记录中指向未打包 runs/tmp 的链接属于本机证据，本包已有精选报告，不包含那些运行的权重。此研究协作包包含父工作区研究设计文档，并不等于授权公开发布这些文档。
+三份主文档已按当前实现精简同步；部分技术记录保留早期测试与修复历史，请留意其日期和历史说明。完整运行数据和权重不在包内，精选验证报告见 validation/。
 '''
     (bundle/'README_FIRST.zh-CN.md').write_text(readme,encoding='utf-8')
     checklist = '''# 与合作者共同确认
@@ -138,7 +138,7 @@ python -X utf8 run_memturn.py demo --config configs/smoke.json --output runs/fir
             entries.append({'path':path.relative_to(bundle).as_posix(),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
     head = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     manifest = {'created_utc':datetime.now(timezone.utc).isoformat(),'base_commit':head,
-                'source_kind':'working_tree_including_authorized_uncommitted_repairs',
+                'source_kind':'working_tree_snapshot',
                 'secret_scan':'allowlist_and_pattern_scan_passed','files':entries}
     (bundle/'MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
     archive = output/(bundle.name+'.zip')

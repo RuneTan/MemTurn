@@ -1,8 +1,10 @@
 # Validation status
 
+[English](validation.md) | [简体中文](validation.zh-CN.md)
+
 Updated: 2026-10-24. This is implementation evidence, not paper results.
 
-Latest delivery regression: **132/132 passed on Windows**; **129 passed and 3 optional-dependency skips on Linux**. The local HTTP/process fixture exercises the remote assembly and exact-once result accounting across resume. Two real isolated Qwen3-1.7B SFT jobs each covered all three fixture examples, with three updates and continued LoRA weights. These are engineering checks, not native task gains or a cluster SLA. See the [cluster handoff](cluster_handoff.zh-CN.md); the earlier [audit](audit_repairs_2026-10-24.zh-CN.md) preserves its historical validation counts.
+Latest delivery regression: **132/132 passed on Windows**; **129 passed and 3 optional-dependency skips on Linux**. The local HTTP/process fixture exercises the remote assembly and exact-once result accounting across resume. Two real isolated Qwen3-1.7B SFT jobs each covered all three fixture examples, with three updates and continued LoRA weights. These are engineering checks, not native task gains or a cluster SLA. See the [cluster handoff](cluster_handoff.md); the earlier [audit](audit_repairs_2026-10-24.md) preserves its historical validation counts.
 
 Grouped-chain checks additionally cover raw HTTP response auditing, daily-limit
 classification, a new allowance on explicit resume, source requeue without task
@@ -81,10 +83,11 @@ verifies the mixed backend path, not a measured learning advantage.
 
 ## Not yet validated
 
-- Remote Qwen3.5-9B loading, chat templates, LoRA target modules and vLLM adapter
-  hot loading. Local Qwen3-1.7B has been checked separately.
+- Formal remote-model loading, chat templates, LoRA target modules and vLLM
+  adapter hot loading. Local Qwen3-1.7B has been checked separately; Qwen3.5-9B
+  was an earlier candidate, while formal model selection remains open.
 - Hugging Face SFT against the actual remote target models. The complete backend
-  has been exercised on local Qwen3-1.7B, not on remote Qwen3.5-9B.
+  has been exercised on local Qwen3-1.7B, not on the formal remote models.
 - Native interface checks do not complete fixed benchmark manifests or the domain
   verifier. Automatic semantic certification remains open and is gated.
 - An actual trained Auto-Dreamer Consolidator checkpoint and faithful reproduction.

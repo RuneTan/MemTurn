@@ -1,5 +1,7 @@
 # Runtime architecture
 
+[English](architecture.md) | [简体中文](architecture.zh-CN.md)
+
 The research objective is cumulative utility over a specified changing task
 stream under explicit memory, parameter, learning and service budgets. No
 component's presence establishes a performance advantage.
@@ -106,16 +108,23 @@ episodes can be requeued at startup. Writer insertion and its source-stage marke
 commit together, so a restart after insertion does not run that Writer again.
 Uncommitted training jobs are cancelled;
 their candidates never become the active model merely because files exist.
-Idempotency IDs are retained within the bounded result-history window; an
-unlimited arbitrary-ID replay guarantee is not claimed.
+The formal remote runner also persists a frozen task manifest, contiguous completion
+watermark and bounded out-of-order window, so completed stream positions are not
+counted again when recent results rotate. Earlier development entry points retain
+only bounded result history and should not be treated as the same recovery protocol.
+Neither unlimited arbitrary-ID replay protection nor exactly-once external-world
+actions are claimed. See [cluster handoff](cluster_handoff.md).
 
 ## Accounting limits
 
-The initial implementation limits serialized active text, evidence/sample data,
-metadata, snapshots, queue length, simulator steps, model versions and database
-pages. It does not prove a bound on process RSS, inference KV caches, remote
-server caches or failed artifact directories. Those deployment-level resources
-must be measured and constrained before the long-run experiments.
+The current implementation limits active text, evidence/sample data, metadata,
+snapshots, queues, simulator steps, model versions and database storage. It also
+reserves workspace, monitors training-process memory, enforces process deadlines,
+persists compute quotas and archives orphan candidates before cleanup.
+
+These software controls do not prove a deployment-wide hard memory bound.
+Inference caches, remote serving caches and peaks still need measurement and
+cluster quotas. See [cluster handoff](cluster_handoff.md) for details and limits.
 
 The default lexical counter and retriever are development implementations. Remote
 profiles use the task tokenizer; retriever choice and revisions must be frozen

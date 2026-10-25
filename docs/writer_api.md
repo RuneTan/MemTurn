@@ -1,5 +1,7 @@
 # Optional external Writer
 
+[English](writer_api.md) | [简体中文](writer_api.zh-CN.md)
+
 Checked against official provider pages on 2026-10-23. A stronger fixed Writer
 can run remotely while the task model and LoRA training remain local. It does
 not need trainable weights. Provider output still passes the same evidence and
@@ -66,7 +68,7 @@ successful requests, 3,561 input tokens and 1,248 completion tokens. Peak CUDA
 allocation was 9.09 GiB. The adapter was published at the stream end, so subsequent
 performance was not evaluated. Gemini remains untested.
 
-The supplied key stayed outside the repository and was injected only into the
-run process. No automatic credential-file loading was added to the application.
+The application reads credentials from environment variables and does not
+automatically load credential files.
 Rate limits and provider errors are recorded through the background failure path;
 they are not silently converted into admitted memories.

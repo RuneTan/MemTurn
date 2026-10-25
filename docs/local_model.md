@@ -1,5 +1,7 @@
 # Local GPU integration
 
+[English](local_model.md) | [简体中文](local_model.zh-CN.md)
+
 Checked on 2026-10-23. These are development-environment checks, not benchmark
 results or evidence that memory internalization improves task performance.
 

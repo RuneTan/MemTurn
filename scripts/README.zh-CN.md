@@ -12,7 +12,7 @@
 .\scripts\install_local.ps1
 ```
 
-虚拟环境和权重均被 Git 忽略。实测配置见 [本地模型说明](../docs/local_model.md)。
+虚拟环境和权重均被 Git 忽略。实测配置见 [本地模型说明](../docs/local_model.zh-CN.md)。
 
 `summarize_chain.py` 读取探索运行记录，生成分组报告、Writer 样例及 Matplotlib
 PNG/SVG 图，不调用模型。

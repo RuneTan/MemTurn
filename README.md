@@ -13,7 +13,7 @@ Current implementation: [mixed supervision, native environments and growth accou
 Latest investigation: [learning and retrieval repairs](docs/learning_retrieval_repairs_2026-10-24.md),
 including measured fixes and the remaining limits on parametric learning.
 
-Latest delivery: [cluster handoff and engineering completion](docs/cluster_handoff.zh-CN.md).
+Latest delivery: [cluster handoff and engineering completion](docs/cluster_handoff.md).
 Formal models and cluster resources remain to be selected with the collaborator.
 
 ## Quick start
@@ -85,7 +85,7 @@ Incomplete templates stop before model execution. Task success alone does not ce
 
 Reports, audits, state databases and adapters are written to `runs/`. Weights, virtual environments, caches, credentials and generated outputs are excluded from Git. Pinned profiles and dependency records provide the setup path.
 
-Only the `MemTurn` checkout is published; parent-workspace notes, papers and credentials remain separate. Clone with:
+Clone the repository:
 
 ```text
 git clone https://github.com/RuneTan/MemTurn.git

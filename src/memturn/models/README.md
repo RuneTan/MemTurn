@@ -12,4 +12,4 @@ placeholder strings. The same format is used for SFT and inference.
 
 `agents.py` supplies the prompted Writer and bounded read-only Consolidator tool loop. Independent evidence checks gate their outputs. This is not the trained Auto-Dreamer checkpoint.
 
-No credentials are read from parent files. Local weights and deployment-specific serving code stay separate from memory management.
+Local weights and deployment-specific serving code stay separate from memory management.

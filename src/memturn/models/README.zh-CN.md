@@ -11,4 +11,4 @@
 
 `agents.py` 提供提示式 Writer 与有限的只读 Consolidator 工具循环，输出必须通过独立来源校验。这尚不是 Auto-Dreamer 训练后的 Consolidator。
 
-不读取父目录的凭据文件；模型权重与具体部署逻辑均和记忆管理分离。
+模型权重与具体部署逻辑均和记忆管理分离。

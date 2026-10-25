@@ -38,13 +38,13 @@ python -X utf8 -m unittest discover -s tests -t . -v
 
 第一种运行由模型承担任务、Writer 和 Consolidator；第二种使用可校验的小环境经验组件，单独验证真实任务模型推理和语言模型 LoRA SFT。两者都使用开发小环境，默认每个任务后等待后台，不用于测量不停机服务。
 
-硬件、实测结果和复现步骤见 [本地模型说明](docs/local_model.md)。
+硬件、实测结果和复现步骤见 [本地模型说明](docs/local_model.zh-CN.md)。
 
 可通过 `--writer-profile` 单独选用固定的 API Writer。免费候选与配置方法见
-[接口说明](docs/writer_api.md)。Groq 小规模试跑已接纳四条记忆，并完成一次本地
+[接口说明](docs/writer_api.zh-CN.md)。Groq 小规模试跑已接纳四条记忆，并完成一次本地
 LoRA 发布；Gemini 尚未验证。
 
-受额度约束的探索运行见 [分组任务链说明](docs/grouped_chain.md)。该模式计划至多
+受额度约束的探索运行见 [分组任务链说明](docs/grouped_chain.zh-CN.md)。该模式计划至多
 500 个分组小环境任务，保留 Writer 原始候选，并在预算处保存可续跑断点。
 
 ## 系统设计
@@ -65,7 +65,7 @@ LoRA 发布；Gemini 尚未验证。
 | [src](src/README.zh-CN.md) | 记忆、模型、环境与训练模块 |
 | [tests](tests/README.zh-CN.md) | 生命周期、失败、并发与后端检查 |
 
-建议从 [架构](docs/architecture.md)、[部署](docs/setup.md) 和 [验证状态](docs/validation.md) 开始。主要目录均提供独立的中英文 README；详细技术文档目前以英文为主。
+建议从 [架构](docs/architecture.zh-CN.md)、[部署](docs/setup.zh-CN.md) 和 [验证状态](docs/validation.zh-CN.md) 开始。主要目录说明和技术文档均提供中英文版本。
 
 ## 基准实验阶段
 
@@ -83,11 +83,11 @@ python run_memturn.py check-profile --profile configs/scienceworld.example.json
 
 报告、审计、状态库和适配器写入 `runs/`。权重、虚拟环境、缓存、凭据和生成产物不进入 Git；通过固定配置与依赖记录复现安装。
 
-仓库只发布 `MemTurn` 项目，父工作区的研究笔记、文献 PDF 与凭据保持独立。克隆方式：
+克隆仓库：
 
 ```text
 git clone https://github.com/RuneTan/MemTurn.git
 cd MemTurn
 ```
 
-基准表现、长程稳定性和创新性仍需实证检验。来源见 [原始文献](docs/literature.md)。本仓库不附加软件许可证（GitHub：None）。
+基准表现、长程稳定性和创新性仍需实证检验。来源见 [原始文献](docs/literature.zh-CN.md)。本仓库不附加软件许可证（GitHub：None）。

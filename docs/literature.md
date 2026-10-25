@@ -1,6 +1,8 @@
 # Literature index
 
-Downloaded papers and detailed reading notes are maintained outside this repository. Use the original sources below; inclusion here does not imply successful reproduction.
+[English](literature.md) | [简体中文](literature.zh-CN.md)
+
+Use the original sources below; inclusion here does not imply successful reproduction.
 
 | Paper | Original source |
 | --- | --- |

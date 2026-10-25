@@ -7,7 +7,7 @@ not evidence that the selected experience has been internalized.
 
 **Audit correction:** The 62-test and two-job results below are historical.
 The old QA probe mistakenly requested environment-action JSON; its output cannot
-diagnose QA failure. See the [engineering audit](audit_repairs_2026-10-24.zh-CN.md)
+diagnose QA failure. See the [engineering audit](audit_repairs_2026-10-24.md)
 for the corrected probe, new regression results and three continued publications.
 
 ## Training material
