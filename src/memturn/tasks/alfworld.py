@@ -30,6 +30,8 @@ class ALFWorldEnvironment:
         if expected and actual != expected:
             raise ValueError("ALFWorld reset selected a different game than the manifest")
         self.previous_score = 0.0
+        initial = info.get('score')
+        self.previous_native_score = initial[0] if isinstance(initial,list) and initial else None
         self.admissible = info.get('admissible_commands',[None])[0]
         return str(observations[0])
 
@@ -39,10 +41,12 @@ class ALFWorldEnvironment:
         admissible = action in self.admissible if isinstance(self.admissible,list) else None
         self.admissible = info.get('admissible_commands',[None])[0]
         delta, self.previous_score = score - self.previous_score, score
+        before, self.previous_native_score = self.previous_native_score, score
         won = bool(info.get("won", [score >= 1.0])[0])
         return Transition(str(observations[0]), delta, bool(dones[0]), accepted=False,
                           success=bool(dones[0] and won),
                           evidence={'native_environment':'alfworld','native_score':score,
+                                    'native_score_before':before,
                                     'action_admissible':admissible})
 
     def close(self):

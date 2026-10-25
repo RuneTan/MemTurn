@@ -26,7 +26,8 @@ For isolated Qwen3-1.7B inference and language-model SFT on the laptop, see the
 does not require benchmark assets or a remote server.
 
 The agreed first environments are ScienceWorld and ALFWorld. WebArena is deferred.
-The target task model is `Qwen/Qwen3.5-9B`; the Writer uses `Qwen/Qwen3-14B`.
+The formal task, Writer and Consolidator models are pending collaborator discussion.
+The remote templates intentionally leave model identities unresolved.
 Auto-Dreamer's Consolidator was trained from Qwen3-14B. A base Qwen3-14B prompted
 operator is only a development variant, not that trained checkpoint.
 See [Auto-Dreamer section 5.1](https://arxiv.org/html/2605.20616v1).
@@ -72,7 +73,9 @@ python run_memturn.py run --profile configs/your_verified_profile.json --output 
 ```
 
 The provided profiles intentionally contain unresolved fields and cannot launch
-formal experiments unchanged. They initially wait for background work between
-tasks; replace and evaluate the arrival policy before claiming uninterrupted
-service under a workload. Remote resume, a validated benchmark verifier,
-distributed SFT and formal serving SLAs are not completed by the offline fixture.
+formal experiments unchanged. They now include bounded periodic arrivals and explicit `--resume`, with an immutable
+manifest and bounded out-of-order completion window. A narrow observed-transition
+verifier is available; free-form semantic claims remain gated. See
+[cluster handoff](cluster_handoff.zh-CN.md) for process deadlines, quotas, deployment
+attestation, the matrix driver and remaining cluster acceptance. Distributed SFT
+and measured serving SLAs are not established by the offline fixture.

@@ -39,7 +39,7 @@ def main(args):
         learner.retain({artifact.version})
         parent=artifact.version
     qa=examples[0]
-    response=serving.complete(training_messages(qa.prompt),role='interface_qa',max_new_tokens=96,
+    response=serving.complete(training_messages(qa.prompt,output_kind=qa.output_kind),role='interface_qa',max_new_tokens=96,
                               model_override=artifacts[-1].version)
     report={'scope':'mixed-target LM optimizer and adapter-load check only; diagnostic QA is not domain-verified; no memory retired',
             'native_source_tasks':[e.task_id for e in episodes],

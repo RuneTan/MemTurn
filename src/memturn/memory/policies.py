@@ -15,8 +15,12 @@ def select_one(memories, validator, counter, config, seed=None):
                 and counter.count(m.payload) <= config.entry_token_cap
                 and validator.support_count(m) >= config.min_support_tasks
                 and validator.trainable(m)]
-    ranked = ranked_by_support(eligible, validator.support_count,
-                               config.seed if seed is None else seed)
+    seed = config.seed if seed is None else seed
+    if config.selection_policy == 'random':
+        ranked = sorted(eligible, key=lambda m: m.ref)
+        random.Random(seed).shuffle(ranked)
+    else:
+        ranked = ranked_by_support(eligible, validator.support_count, seed)
     return ranked[0] if ranked else None
 
 
@@ -25,7 +29,11 @@ def cold_region(memories, batch, counter, config, excluded=()):
     cold = [m for m in memories if m.ref not in blocked and batch - m.recency_anchor >= 1]
     cold.sort(key=lambda m: (m.recency_anchor, m.id))
     selected, tokens = [], 0
-    for memory in cold[:max(1, math.ceil(len(cold) * config.cold_fraction))]:
+    limit = max(1, math.ceil(len(cold) * config.cold_fraction))
+    # Oversized cold entries must not permanently starve later usable regions.
+    for index, memory in enumerate(cold):
+        if index >= limit and selected:
+            break
         size = counter.count(memory.payload)
         if tokens + size <= config.region_token_cap:
             selected.append(memory)

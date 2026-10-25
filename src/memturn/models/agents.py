@@ -111,6 +111,8 @@ class ChatWriter:
         result = parse_json(self.client.complete(messages))["memory"]
         if result is None:
             return None
+        if any(s.get('task_id') != episode.task_id for s in result.get('supports', ())):
+            raise ValueError('Writer support must come from its current episode')
         result["parents"] = []
         return decode_memory(result, batch, f"writer_{episode.task_id}",
                              lambda task_id: episode if task_id == episode.task_id else None)
@@ -166,8 +168,6 @@ class ChatConsolidator:
                 outputs.append(memory)
                 if sum(len(m.examples) for m in outputs) > self.store.config.max_examples_per_job:
                     raise ValueError('consolidator exceeded its training-example budget')
-                if mode == 'capacity' and memory.examples:
-                    raise ValueError('capacity consolidation must not emit training material')
                 if sum(self.counter.count(m.payload) for m in outputs) > output_budget:
                     raise ValueError("consolidator exceeded its body output budget")
                 result = {"accepted_as_candidate": memory.ref}

@@ -74,12 +74,15 @@ def check_profile(args):
     profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
     missing = inspect_profile(profile)
     print(json.dumps({"ready": not missing, "unresolved": missing,
+                      "meaning":"configuration_completeness_only_not_remote_acceptance",
                       "network_checks": "not_run", "operator_kind": profile["operator_kind"]}, indent=2))
+    if missing:
+        raise SystemExit(2)
 
 
 def run_remote(args):
     from .experiments import run_profile
-    print(json.dumps(run_profile(args.profile, args.output), ensure_ascii=False, indent=2))
+    print(json.dumps(run_profile(args.profile, args.output, args.resume), ensure_ascii=False, indent=2))
 
 
 def local_smoke(args):
@@ -112,6 +115,7 @@ def main():
     remote = sub.add_parser("run", help="execute a completed remote benchmark profile")
     remote.add_argument("--profile", required=True)
     remote.add_argument("--output", required=True)
+    remote.add_argument('--resume', action='store_true')
     remote.set_defaults(handler=run_remote)
     local = sub.add_parser("local-smoke", help="run a downloaded local LM in the engineering environment")
     local.add_argument("--profile", default="configs/local_qwen3_1_7b.json")
@@ -135,5 +139,5 @@ def main():
         parser.error("tasks must be positive")
     try:
         args.handler(args)
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, RuntimeError) as error:
         parser.exit(2, f"memturn: {error}\n")

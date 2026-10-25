@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 import time
 import uuid
 
@@ -73,14 +74,23 @@ class SFTConfig:
     max_training_tokens: int = 16384
     max_seconds: float = 1200.0
     seed: int = 42
+    weight_decay: float = 0.01
+    artifact_byte_cap: int = 67108864
+    max_gpu_reserved_bytes: int | None = None
 
     def __post_init__(self):
         for name in ("rank", "alpha", "learning_rate", "epochs", "gradient_accumulation",
-                     "max_length", "max_training_tokens", "max_seconds"):
-            if getattr(self, name) <= 0:
+                     "max_length", "max_training_tokens", "max_seconds", "artifact_byte_cap"):
+            if isinstance(getattr(self,name),bool) or not math.isfinite(getattr(self,name)) or getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
+            if name not in ('learning_rate','max_seconds') and not isinstance(getattr(self,name),int):
+                raise ValueError(f'{name} must be an integer')
         if self.steps is not None and self.steps <= 0:
             raise ValueError("legacy steps must be positive when supplied")
+        if not math.isfinite(self.weight_decay) or self.weight_decay < 0 or (self.max_gpu_reserved_bytes is not None and
+                (not isinstance(self.max_gpu_reserved_bytes,int) or isinstance(self.max_gpu_reserved_bytes,bool)
+                 or self.max_gpu_reserved_bytes <= 0)):
+            raise ValueError('invalid optimizer or GPU budget')
 
 
 class HuggingFaceLearner:
@@ -94,6 +104,8 @@ class HuggingFaceLearner:
         self.artifacts = {}
 
     def train(self, examples, parent_version, memory_context=(), histories=None):
+        if not self.has_artifact_capacity(3):
+            raise ValueError('adapter directory limit reached; existing checkpoints require review')
         import torch
         import transformers
         from peft import LoraConfig, PeftModel, get_peft_model
@@ -116,25 +128,38 @@ class HuggingFaceLearner:
         allowed = {"AutoModelForCausalLM", "AutoModelForMultimodalLM", "AutoModelForImageTextToText"}
         if cfg.loader_class not in allowed:
             raise ValueError("unsupported model loader")
+        if cfg.device.startswith('cuda'):
+            torch.cuda.init()
+            torch.cuda.reset_peak_memory_stats(cfg.device)
+            if cfg.max_gpu_reserved_bytes is not None:
+                total = torch.cuda.get_device_properties(cfg.device).total_memory
+                torch.cuda.set_per_process_memory_fraction(min(1.0, cfg.max_gpu_reserved_bytes / total), cfg.device)
         loader = getattr(transformers, cfg.loader_class)
         model = loader.from_pretrained(cfg.model_id, revision=cfg.model_revision,
                                       torch_dtype=getattr(torch, cfg.dtype)).to(cfg.device)
         if parent_version == "base":
-            model = get_peft_model(model, LoraConfig(r=cfg.rank, lora_alpha=cfg.alpha,
-                target_modules=list(cfg.target_modules), bias="none", task_type="CAUSAL_LM"))
+            devices = [torch.device(cfg.device).index or 0] if cfg.device.startswith('cuda') else []
+            with torch.random.fork_rng(devices=devices):
+                torch.manual_seed(cfg.seed)
+                model = get_peft_model(model, LoraConfig(r=cfg.rank, lora_alpha=cfg.alpha,
+                    target_modules=list(cfg.target_modules), bias="none", task_type="CAUSAL_LM"))
         else:
             parent = self.artifacts.get(parent_version)
             if not parent:
                 raise ValueError("current adapter must be registered before continuation")
             if parent.metrics["rank"] != cfg.rank or parent.metrics["model_revision"] != cfg.model_revision:
                 raise ValueError("adapter rank and base-model revision must remain fixed")
+            self._validate_artifact(parent)
             model = PeftModel.from_pretrained(model, parent.path, is_trainable=True)
         trainable = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
         if not trainable or any("lora_" not in name for name, _ in trainable):
             raise ValueError("only LoRA parameters may be trainable")
+        artifact_estimate = sum(p.numel() * p.element_size() for _, p in trainable) + 1048576
+        if artifact_estimate > cfg.artifact_byte_cap:
+            raise ValueError('adapter parameter bytes exceed the candidate disk reservation')
         before = [p.detach().cpu().clone() for _, p in trainable]
-        optimizer = torch.optim.AdamW([p for _, p in trainable], lr=cfg.learning_rate)
-        losses, processed_tokens, consumed = [], 0, []
+        optimizer = torch.optim.AdamW([p for _, p in trainable], lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
+        losses, processed_tokens, consumed, gradient_norms = [], 0, [], []
         schedule = (epoch_schedule(len(batches), cfg.epochs, cfg.gradient_accumulation, cfg.seed)
                     if cfg.steps is None else training_schedule(len(batches), cfg.steps,
                                                                cfg.gradient_accumulation, cfg.seed))
@@ -170,12 +195,18 @@ class HuggingFaceLearner:
                                  "covered_content_refs":list(example.covered_content_refs),
                                  "input_step": example.step if example.input_step is None else example.input_step,
                                  "optimizer_step": step, "tokens": len(ids),
-                                 "input_sha256": hashlib.sha256(example.prompt.encode()).hexdigest()})
+                                 "target_tokens": sum(label != -100 for label in labels),
+                                 "input_sha256": hashlib.sha256(dumps(ids).encode()).hexdigest()})
             if any(p.grad is not None for _, p in model.named_parameters() if not p.requires_grad):
                 raise RuntimeError("frozen base received gradients")
-            torch.nn.utils.clip_grad_norm_([p for _, p in trainable], 1.0, error_if_nonfinite=True)
+            gradient_norm = torch.nn.utils.clip_grad_norm_([p for _, p in trainable], 1.0, error_if_nonfinite=True)
+            gradient_norms.append(float(gradient_norm))
             optimizer.step()
+            if not all(torch.isfinite(p).all() for _, p in trainable):
+                raise RuntimeError('non-finite adapter after optimizer update')
             losses.append(step_loss)
+        if time.monotonic() - started > cfg.max_seconds:
+            raise RuntimeError('training deadline exceeded; memory must be retained')
         if {row["index"] for row in consumed} != set(range(len(batches))):
             raise RuntimeError("incomplete training sample coverage; memory must be retained")
         if cfg.steps is None and len(consumed) != len(batches) * cfg.epochs:
@@ -194,29 +225,73 @@ class HuggingFaceLearner:
                    "validated_examples": len(examples), "unique_consumed_examples": len({r['index'] for r in consumed}),
                    "examples_by_type":{kind:sum(e.example_type==kind for e in examples)
                                        for kind in sorted({e.example_type for e in examples})},
+                   "target_tokens_by_type":{kind:sum(r['target_tokens'] for r in consumed if r['example_type']==kind)
+                                            for kind in sorted({e.example_type for e in examples})},
                    "sample_coverage": 1.0, "consumed_examples": consumed,
                    "configured_gradient_accumulation": cfg.gradient_accumulation,
                    "effective_gradient_accumulation": len(schedule[0]), "sampling_seed": cfg.seed,
                    "trainable_parameters": sum(p.numel() for _, p in trainable), "base_frozen": True,
                    "model_id": cfg.model_id, "model_revision": cfg.model_revision,
-                   "rank": cfg.rank, "checksums": checksums, "seconds": time.monotonic()-started}
+                   "rank": cfg.rank, "alpha":cfg.alpha, "target_modules":list(cfg.target_modules),
+                   "learning_rate":cfg.learning_rate, "gradient_norms":gradient_norms,
+                   "weight_decay":cfg.weight_decay, "artifact_reserved_bytes":cfg.artifact_byte_cap,
+                   "cuda_peak_allocated_bytes":torch.cuda.max_memory_allocated(cfg.device) if cfg.device.startswith('cuda') else 0,
+                   "cuda_peak_reserved_bytes":torch.cuda.max_memory_reserved(cfg.device) if cfg.device.startswith('cuda') else 0,
+                   "checksums": checksums, "seconds": time.monotonic()-started}
         artifact = Artifact(version, str(path), "huggingface_lora", parent_version, metrics)
         (path / "manifest.json").write_text(dumps(artifact.__dict__), encoding="utf-8")
+        if sum(p.stat().st_size for p in path.iterdir()) > cfg.artifact_byte_cap:
+            raise ValueError('saved candidate exceeds its configured artifact byte cap')
         self.artifacts[version] = artifact
         del optimizer, model
         if cfg.device.startswith("cuda"):
             torch.cuda.empty_cache()
         return artifact
 
-    def prepare(self, artifact):
+    def _validate_artifact(self, artifact):
         path = Path(artifact.path).resolve()
-        if path.parent != self.root:
+        if path.parent != self.root or path.name != artifact.version or artifact.backend != 'huggingface_lora':
             raise ValueError("adapter path is outside its configured root")
-        for name, checksum in artifact.metrics["checksums"].items():
+        checksums = artifact.metrics.get('checksums', {})
+        if not {'adapter_config.json','adapter_model.safetensors'} <= set(checksums):
+            raise ValueError('adapter lacks required file checksums')
+        for name, checksum in checksums.items():
             if Path(name).name != name or hashlib.sha256((path/name).read_bytes()).hexdigest() != checksum:
                 raise ValueError("adapter checksum mismatch")
+        settings = json.loads((path/'adapter_config.json').read_text(encoding='utf-8'))
+        if (settings.get('r') != self.config.rank or settings.get('lora_alpha') != self.config.alpha
+                or set(settings.get('target_modules',())) != set(self.config.target_modules)
+                or artifact.metrics.get('model_revision') != self.config.model_revision):
+            raise ValueError('adapter must preserve base revision, rank, alpha and target modules')
+
+    def prepare(self, artifact):
+        self._validate_artifact(artifact)
         self.serving.load(artifact)
         self.artifacts[artifact.version] = artifact
+
+    def has_artifact_capacity(self, limit):
+        # Count even unregistered and incomplete checkpoints after a restart.
+        # Preserve them for review instead of silently growing or deleting them.
+        return sum(path.is_dir() for path in self.root.iterdir()) < limit
+
+    def recover_orphans(self, versions):
+        from .archive import archive_orphan
+        protected = set(versions) | set(self.artifacts)
+        events = []
+        for path in sorted(self.root.iterdir()):
+            if path.name in protected or not re.fullmatch(r'hf_[0-9a-f]{32}', path.name):
+                continue
+            if not path.is_dir():
+                continue
+            try:
+                if hasattr(self.serving, 'is_registered') and self.serving.is_registered(path.name):
+                    raise ValueError('orphan is still advertised remotely; preserve files for deployment-owner review')
+                archived = archive_orphan(path, self.root)
+                events.append({'version': path.name, 'archive': str(archived), 'state': 'archived'})
+            except Exception as error:
+                events.append({'version': path.name, 'state': 'recovery_failed',
+                               'error': f'{type(error).__name__}: {error}'})
+        return events
 
     def retain(self, versions):
         for version, artifact in list(self.artifacts.items()):

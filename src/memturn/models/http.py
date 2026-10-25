@@ -1,13 +1,45 @@
 """Minimal chat-compatible HTTP client. Keys are read only from named env vars."""
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from contextlib import contextmanager
+import contextvars
+from functools import wraps
 import json
 import os
 import re
 import time
+import threading
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from ..contracts import RetrievalResult
+
+_deadline = contextvars.ContextVar('model_call_deadline', default=None)
+
+
+def remaining_timeout(default):
+    deadline = _deadline.get()
+    return min(default, deadline - time.monotonic()) if deadline is not None else default
+
+
+@contextmanager
+def call_deadline(seconds):
+    previous = _deadline.get()
+    deadline = time.monotonic() + seconds
+    token = _deadline.set(min(previous, deadline) if previous else deadline)
+    try:
+        yield
+    finally:
+        _deadline.reset(token)
+
+
+def bounded_operation(config_field):
+    def decorate(method):
+        @wraps(method)
+        def invoke(self, *args, **kwargs):
+            with call_deadline(getattr(self.config, config_field)):
+                return method(self, *args, **kwargs)
+        return invoke
+    return decorate
 
 
 @dataclass(frozen=True)
@@ -20,6 +52,13 @@ class ChatConfig:
     temperature: float = 0.0
     chat_template_kwargs: dict | None = None
     response_format: dict | None = None
+    max_request_bytes: int = 4194304
+    max_response_bytes: int = 8388608
+    isolate_process: bool = False
+
+    def __post_init__(self):
+        if min(self.timeout_seconds, self.max_tokens, self.max_request_bytes, self.max_response_bytes) <= 0:
+            raise ValueError('HTTP time, token and byte budgets must be positive')
 
 
 def parse_json(text):
@@ -44,11 +83,39 @@ class HttpChat:
             raise ValueError("model endpoint must use HTTP(S)")
         self.config = config
         self.audit = audit
+        self.response_usage = threading.local()
+        self.usage_lock = threading.Lock()
         self.usage = {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0,
                       "attempts": 0, "failures": 0, "cached_prompt_tokens": 0}
 
+    def _add_usage(self, **values):
+        with self.usage_lock:
+            for key, value in values.items():
+                self.usage[key] += value
+
     def complete(self, messages, model_override=None):
         started = time.monotonic()
+        timeout = self.config.timeout_seconds
+        if _deadline.get() is not None:
+            timeout = min(timeout, _deadline.get() - started)
+        if timeout <= 0:
+            raise TimeoutError('model operation deadline expired')
+        if self.config.isolate_process:
+            from ..runtime.process import run_worker
+            self._add_usage(attempts=1)
+            try:
+                result = run_worker('http', {'config':asdict(self.config), 'messages':messages,
+                                            'model_override':model_override}, timeout,
+                                    max_bytes=max(self.config.max_request_bytes, self.config.max_response_bytes))
+            except Exception:
+                self._add_usage(failures=1)
+                raise
+            self._add_usage(**{key:value for key,value in result['usage'].items() if key != 'attempts'})
+            self.response_usage.value = result['usage']
+            if self.audit:
+                self.audit({'event':'http_model_response', 'model':model_override or self.config.model,
+                            'text':result['text'], 'usage':result['usage'], 'seconds':time.monotonic()-started})
+            return result['text']
         payload = {"model": model_override or self.config.model, "messages": messages,
                    "temperature": self.config.temperature, "max_tokens": self.config.max_tokens}
         if self.config.chat_template_kwargs is not None:
@@ -59,30 +126,35 @@ class HttpChat:
         key = os.environ.get(self.config.api_key_env)
         if key:
             headers["Authorization"] = "Bearer " + key
-        request = Request(self.config.base_url.rstrip("/") + "/chat/completions",
-                          json.dumps(payload).encode("utf-8"), headers=headers)
-        self.usage["attempts"] += 1
+        body = json.dumps(payload).encode("utf-8")
+        if len(body) > self.config.max_request_bytes:
+            raise ValueError('model request exceeds byte budget')
+        request = Request(self.config.base_url.rstrip("/") + "/chat/completions", body, headers=headers)
+        self._add_usage(attempts=1)
         try:
-            with urlopen(request, timeout=self.config.timeout_seconds) as response:
-                result = json.load(response)
+            with urlopen(request, timeout=timeout) as response:
+                body = response.read(self.config.max_response_bytes + 1)
+                if len(body) > self.config.max_response_bytes:
+                    raise ValueError('model response exceeds byte budget')
+                result = json.loads(body)
         except HTTPError as error:
-            self.usage["failures"] += 1
+            self._add_usage(failures=1)
             body = error.read(16384).decode("utf-8", "replace")
             daily = bool(re.search(r"tokens per day|requests per day|\bTPD\b|\bRPD\b|daily", body, re.I))
             try:
                 retry_after = float(error.headers.get("Retry-After", 0))
             except (TypeError, ValueError, AttributeError):
                 retry_after = 0
+            error.close()
             if self.audit:
                 self.audit({"event": "http_model_error", "status": error.code,
                             "daily": daily, "retry_after": retry_after})
             raise ModelHTTPError(error.code, retry_after, daily) from None
         usage = result.get("usage", {})
-        self.usage["requests"] += 1
-        for key in ("prompt_tokens", "completion_tokens"):
-            self.usage[key] += int(usage.get(key, 0))
+        self.response_usage.value = usage
         cached = int(usage.get("prompt_tokens_details", {}).get("cached_tokens", 0))
-        self.usage["cached_prompt_tokens"] += cached
+        self._add_usage(requests=1, prompt_tokens=int(usage.get('prompt_tokens',0)),
+                        completion_tokens=int(usage.get('completion_tokens',0)), cached_prompt_tokens=cached)
         content = result["choices"][0]["message"]["content"]
         if self.audit:
             self.audit({"event": "http_model_response", "model": self.config.model,

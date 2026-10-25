@@ -16,3 +16,5 @@
 | [Literature](literature.md) | Primary papers and attribution |
 
 Private research notes remain outside the checkout. Update these documents alongside code. Directory READMEs are bilingual; the detailed technical documents are currently in English.
+
+Latest delivery: [cluster handoff and engineering completion](cluster_handoff.zh-CN.md). Formal model selection is pending collaborator discussion.

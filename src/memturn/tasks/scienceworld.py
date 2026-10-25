@@ -17,6 +17,7 @@ class ScienceWorldEnvironment:
         self.env.load(task.metadata["task_name"], int(task.metadata["variation"]), self.simplifications)
         observation, info = self.env.reset()
         self.previous_score = 0.0
+        self.previous_native_score = info.get('score') if isinstance(info,dict) else None
         self.valid = info.get('valid') if isinstance(info,dict) else None
         describe = getattr(self.env,'taskdescription',None) or self.env.get_task_description
         self.description = describe()
@@ -30,9 +31,11 @@ class ScienceWorldEnvironment:
         admissible = action in self.valid if isinstance(self.valid,list) and all(isinstance(x,str) for x in self.valid) else None
         self.valid = info.get('valid')
         delta, self.previous_score = score - self.previous_score, score
+        before, self.previous_native_score = self.previous_native_score, info['score']
         return Transition(f"Task: {self.description}\n{observation}", delta, bool(done),
                           accepted=False, success=bool(done and score >= 1.0),
                           evidence={'native_environment':'scienceworld','native_score':info['score'],
+                                    'native_score_before':before,
                                     'native_reward':reward,'action_admissible':admissible})
 
     def close(self):

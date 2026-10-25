@@ -48,6 +48,7 @@ class Memory:
     created_batch: int = 0
     recency_anchor: int = 0
     consolidated: bool = False
+    last_access_seq: int = 0
 
     @property
     def ref(self):

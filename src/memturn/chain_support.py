@@ -1,5 +1,6 @@
 """Small exploratory-run helpers; metrics and audits are never agent memory."""
 from collections import deque
+import json
 import time
 
 from .models.http import ModelHTTPError
@@ -27,15 +28,20 @@ class BudgetedChat:
         u = self.usage
         return u["prompt_tokens"] + u["completion_tokens"] - u.get("cached_prompt_tokens", 0)
 
-    def can_start(self):
-        return self.budget_used + 4096 <= self.token_budget
+    def can_start(self, reservation=4096):
+        return self.budget_used + reservation <= self.token_budget
 
     @property
     def budget_used(self):
         return self.charged_tokens - self.starting_tokens
 
     def complete(self, messages, model_override=None):
-        if not self.can_start():
+        # A byte-level conservative allowance for UTF-8 byte-tokenizers plus
+        # message framing and maximum completion; large prompts are not charged
+        # as a fixed 4096-token request. Actual usage remains provider-reported.
+        reservation = max(4096, len(json.dumps(messages,ensure_ascii=False).encode('utf-8'))
+                          + 64 * (len(messages) + 1) + getattr(getattr(self.client,'config',None),'max_tokens',1024))
+        if not self.can_start(reservation):
             self.paused = "configured_writer_token_budget"
             raise ExperimentPaused(self.paused)
         # Leave headroom below the published 8k TPM; actual server limits still win.
@@ -97,7 +103,7 @@ def probe_actions(backend, store, policy, counter, config, checkpoint):
     from .tasks.toy import ToyEnvironment, PREPARE
     rows = []
     retriever = Retriever(counter, config)
-    with store.session() as view:
+    with store.session(read_only=True) as view:
         for condition_index, condition in enumerate(PREPARE):
             family, version = condition.split(":")
             for sample in range(2):

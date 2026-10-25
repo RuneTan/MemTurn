@@ -60,10 +60,7 @@ def evaluate(run, show_tool_state=False, seed_base=1000000):
                 self.search_requests += 1
                 self.last_query = action.get("query")
             return action
-    class DisabledWriter:
-        def write(self, *args):
-            raise AssertionError("evaluation must not write experience")
-    runtime = Runtime(store, DisabledWriter(), None, None)
+    runtime = Runtime(store, None, None, None)
     rows = []
     try:
         for label, version, use_memory in (("base_no_memory", "base", False),

@@ -8,6 +8,8 @@ MemTurn 研究如何让 Agent 面对持续变化的任务流，在有限外部�
 
 **当前状态：可执行研究原型。** 记忆生命周期测试与微型梯度训练已在本机运行；独立的 Qwen3-1.7B 后端用于本地 GPU 接入检查。ScienceWorld、ALFWorld、原版训练后的 Auto-Dreamer Consolidator 和长程对照实验仍待完成。工程检查尚不能证明研究优势。
 
+最新交付：[集群交接与工程补齐](docs/cluster_handoff.zh-CN.md)。
+
 本轮落实：[混合监督、原生环境和增长统计](docs/implementation_2026-10-24.zh-CN.md)。
 
 最新调查：[训练与检索修复](docs/learning_retrieval_repairs_2026-10-24.zh-CN.md)，包含定向
@@ -67,7 +69,7 @@ LoRA 发布；Gemini 尚未验证。
 
 ## 基准实验阶段
 
-首轮范围是 **ScienceWorld 与 ALFWorld**，WebArena 暂缓。远程配置按 Auto-Dreamer 选择任务模型 `Qwen/Qwen3.5-9B`，Writer 和 Consolidator 基座 `Qwen/Qwen3-14B`。当前提示式 Consolidator 尚不是原论文训练后的模型。
+首轮范围是 **ScienceWorld 与 ALFWorld**，WebArena 暂缓。正式模型、集群资源与实验安排等待合作者共同确认，远程模板保留 `TO_*` 占位。当前提示式 Consolidator 尚不是原论文训练后的模型。
 
 正式实验前，需要验证远程硬件、模型版本、LoRA 目标层、环境资源、任务清单和基准证据校验器：
 
@@ -84,8 +86,8 @@ python run_memturn.py check-profile --profile configs/scienceworld.example.json
 仓库只发布 `MemTurn` 项目，父工作区的研究笔记、文献 PDF 与凭据保持独立。克隆方式：
 
 ```text
-git clone https://github.com/RuneTan/MemTurn-Memory-Internalization-for-Continual-Agents-under-Resource-Constraints.git MemTurn
+git clone https://github.com/RuneTan/MemTurn.git
 cd MemTurn
 ```
 
-基准表现、长程稳定性和创新性仍需实证检验。来源见 [原始文献](docs/literature.md)。项目软件许可证尚未选定。
+基准表现、长程稳定性和创新性仍需实证检验。来源见 [原始文献](docs/literature.md)。本仓库不附加软件许可证（GitHub：None）。

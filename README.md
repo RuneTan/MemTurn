@@ -13,6 +13,9 @@ Current implementation: [mixed supervision, native environments and growth accou
 Latest investigation: [learning and retrieval repairs](docs/learning_retrieval_repairs_2026-10-24.md),
 including measured fixes and the remaining limits on parametric learning.
 
+Latest delivery: [cluster handoff and engineering completion](docs/cluster_handoff.zh-CN.md).
+Formal models and cluster resources remain to be selected with the collaborator.
+
 ## Quick start
 
 Python 3.10+ is sufficient for the core fixture, which uses only the standard library:
@@ -68,7 +71,7 @@ Start with [architecture](docs/architecture.md), [setup](docs/setup.md) and [val
 
 ## Benchmark phase
 
-Initial targets are **ScienceWorld and ALFWorld**; WebArena is deferred. Remote profiles follow Auto-Dreamer's task model `Qwen/Qwen3.5-9B` and Writer/Consolidator base `Qwen/Qwen3-14B`. The current prompted Consolidator is not the original trained checkpoint.
+Initial environments are **ScienceWorld and ALFWorld**; WebArena is deferred. Formal models and cluster resources remain to be selected with the collaborator; remote profiles retain explicit placeholders. The current prompted Consolidator is not the original trained checkpoint.
 
 Remote hardware, model revisions, LoRA target modules, assets, task manifests and benchmark evidence verifiers need validation before formal runs:
 
@@ -85,8 +88,8 @@ Reports, audits, state databases and adapters are written to `runs/`. Weights, v
 Only the `MemTurn` checkout is published; parent-workspace notes, papers and credentials remain separate. Clone with:
 
 ```text
-git clone https://github.com/RuneTan/MemTurn-Memory-Internalization-for-Continual-Agents-under-Resource-Constraints.git MemTurn
+git clone https://github.com/RuneTan/MemTurn.git
 cd MemTurn
 ```
 
-Benchmark performance, long-run stability and novelty remain empirical questions. See the [primary literature](docs/literature.md). A software license has not yet been selected.
+Benchmark performance, long-run stability and novelty remain empirical questions. See the [primary literature](docs/literature.md). This repository is published without a software license (GitHub: None).

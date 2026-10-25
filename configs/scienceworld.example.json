@@ -1,57 +1,119 @@
 {
   "operator_kind": "prompted_region_rewriter_NOT_trained_AutoDreamer_checkpoint",
-  "arrival_policy": "wait_for_background",
+  "arrival_policy": "periodic",
   "runtime": {
     "training_material": "mixed",
     "max_examples_per_job": 32
   },
-  "tokenizer_model": "Qwen/Qwen3.5-9B",
-  "tokenizer_revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
-  "verification_factory": "TO_IMPLEMENT_BENCHMARK_VERIFIER:Verifier",
+  "tokenizer_model": "TO_SELECT_TASK_TOKENIZER",
+  "tokenizer_revision": "TO_SET_IMMUTABLE_TOKENIZER_REVISION",
+  "verification_factory": "TO_SELECT_VALIDATED_DOMAIN_VERIFIER:factory",
   "models": {
     "task": {
-      "model": "Qwen/Qwen3.5-9B",
+      "model": "TO_SELECT_TASK_SERVED_MODEL",
       "base_url_env": "MEMTURN_TASK_BASE_URL",
       "api_key_env": "MEMTURN_TASK_API_KEY",
       "chat_template_kwargs": {
         "enable_thinking": false
-      }
+      },
+      "revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
+      "tokenizer_model": "TO_SELECT_TASK_TOKENIZER",
+      "tokenizer_revision": "TO_SET_IMMUTABLE_TOKENIZER_REVISION",
+      "context_window": "TO_VERIFY_CONTEXT_WINDOW",
+      "total_token_budget": "TO_FREEZE_ROLE_TOKEN_BUDGET",
+      "deployment_manifest": "TO_SET_DEPLOYMENT_MANIFEST",
+      "deployment_manifest_sha256": "TO_SET_MANIFEST_SHA256"
     },
     "writer": {
-      "model": "Qwen/Qwen3-14B",
+      "model": "TO_SELECT_WRITER_SERVED_MODEL",
       "base_url_env": "MEMTURN_WRITER_BASE_URL",
       "api_key_env": "MEMTURN_WRITER_API_KEY",
       "chat_template_kwargs": {
         "enable_thinking": false
-      }
+      },
+      "revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
+      "tokenizer_model": "TO_SELECT_WRITER_TOKENIZER",
+      "tokenizer_revision": "TO_SET_IMMUTABLE_TOKENIZER_REVISION",
+      "context_window": "TO_VERIFY_CONTEXT_WINDOW",
+      "total_token_budget": "TO_FREEZE_ROLE_TOKEN_BUDGET",
+      "deployment_manifest": "TO_SET_DEPLOYMENT_MANIFEST",
+      "deployment_manifest_sha256": "TO_SET_MANIFEST_SHA256"
     },
     "consolidator": {
-      "model": "Qwen/Qwen3-14B",
+      "model": "TO_SELECT_CONSOLIDATOR_SERVED_MODEL",
       "base_url_env": "MEMTURN_CONSOLIDATOR_BASE_URL",
       "api_key_env": "MEMTURN_CONSOLIDATOR_API_KEY",
       "chat_template_kwargs": {
         "enable_thinking": false
-      }
+      },
+      "revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
+      "tokenizer_model": "TO_SELECT_CONSOLIDATOR_TOKENIZER",
+      "tokenizer_revision": "TO_SET_IMMUTABLE_TOKENIZER_REVISION",
+      "context_window": "TO_VERIFY_CONTEXT_WINDOW",
+      "total_token_budget": "TO_FREEZE_ROLE_TOKEN_BUDGET",
+      "deployment_manifest": "TO_SET_DEPLOYMENT_MANIFEST",
+      "deployment_manifest_sha256": "TO_SET_MANIFEST_SHA256"
     }
   },
   "environment": {
     "kind": "scienceworld",
     "task_manifest": "TO_SET_EXPLICIT_TASK_MANIFEST",
     "jar_path": null,
-    "simplifications": ""
+    "simplifications": "",
+    "worker_command": [
+      "TO_SET_NATIVE_ENV_PYTHON",
+      "-u",
+      "scripts/native_worker.py"
+    ],
+    "timeout_seconds": 120,
+    "package_version": "TO_PIN_NATIVE_PACKAGE_VERSION"
   },
   "training": {
     "enabled": true,
-    "model_id": "Qwen/Qwen3.5-9B",
+    "model_id": "TO_SELECT_TASK_BASE_MODEL",
     "model_revision": "TO_SET_IMMUTABLE_MODEL_REVISION",
     "target_modules": [],
-    "loader_class": "AutoModelForMultimodalLM",
+    "loader_class": "TO_VERIFY_LOADER_CLASS",
     "server_adapter_root": "TO_SET_SHARED_ADAPTER_DIRECTORY",
     "rank": 8,
     "alpha": 16,
     "learning_rate": 5e-05,
     "epochs": 1,
     "max_length": 2048,
-    "device": "cuda:0"
+    "device": "cuda:0",
+    "max_training_tokens": 16384,
+    "max_seconds": 1200,
+    "weight_decay": 0.01,
+    "artifact_byte_cap": 67108864,
+    "max_gpu_reserved_bytes": "TO_SET_TRAINING_GPU_ALLOCATOR_LIMIT"
+  },
+  "profile_version": 2,
+  "stream_id": "TO_FREEZE_STREAM_ID",
+  "verification_kwargs": {},
+  "verification_timeout_seconds": 120,
+  "arrival": {
+    "concurrency": 1,
+    "queue_capacity": 1,
+    "interval_seconds": "TO_MEASURE_ARRIVAL_INTERVAL",
+    "task_timeout_seconds": "TO_FREEZE_TASK_DEADLINE"
+  },
+  "utility": {
+    "family_scales": {
+      "scienceworld": "TO_FREEZE_SCALE",
+      "alfworld": "TO_FREEZE_SCALE"
+    },
+    "status_values": {
+      "rejected": "TO_FREEZE_REJECTION_VALUE",
+      "deadline": "TO_FREEZE_TIMEOUT_VALUE",
+      "execution_error": "TO_FREEZE_ERROR_VALUE"
+    }
+  },
+  "resources": {
+    "training_rss_limit_bytes": "TO_SET_TRAINING_RAM_LIMIT",
+    "active_state_disk_bytes": "TO_SET_ACTIVE_STATE_DISK_LIMIT"
+  },
+  "learning_budget": {
+    "tokens": "TO_FREEZE_TOTAL_TRAINING_TOKEN_CAP",
+    "updates": "TO_FREEZE_TOTAL_OPTIMIZER_UPDATE_CAP"
   }
 }

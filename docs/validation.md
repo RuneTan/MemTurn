@@ -2,8 +2,7 @@
 
 Updated: 2026-10-24. This is implementation evidence, not paper results.
 
-Latest isolated-environment regression run: **62 tests passed**. All 12 project
-README locations have separate English and Chinese files with language links.
+Latest delivery regression: **132/132 passed on Windows**; **129 passed and 3 optional-dependency skips on Linux**. The local HTTP/process fixture exercises the remote assembly and exact-once result accounting across resume. Two real isolated Qwen3-1.7B SFT jobs each covered all three fixture examples, with three updates and continued LoRA weights. These are engineering checks, not native task gains or a cluster SLA. See the [cluster handoff](cluster_handoff.zh-CN.md); the earlier [audit](audit_repairs_2026-10-24.zh-CN.md) preserves its historical validation counts.
 
 Grouped-chain checks additionally cover raw HTTP response auditing, daily-limit
 classification, a new allowance on explicit resume, source requeue without task
@@ -31,8 +30,10 @@ not establish that a single pass is sufficient for internalization.
 The current typed QA/action path, original-environment boundary and growth
 accounting are documented in [implementation status](implementation_2026-10-24.md).
 Two real rank-8 Qwen3-1.7B jobs consumed all three mixed examples each. The QA
-probe still returned action JSON: optimizer coverage is verified, learning is
-not. No memory was retired by that interface fixture. Earlier toy measurements
+probe originally returned action JSON, but an audit found that the probe itself
+incorrectly requested action output. That result is not evidence of QA failure.
+The corrected probe returns prose, which still does not establish internalization.
+No memory was retired by either interface fixture. Earlier toy measurements
 below are historical and do not validate the current native protocol.
 
 ## Checked locally
