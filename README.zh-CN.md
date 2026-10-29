@@ -6,9 +6,13 @@
 
 MemTurn 研究如何让 Agent 面对持续变化的任务流，在有限外部记忆、固定秩 LoRA、明确学习成本与服务预算下，持续从自身经验中学习。
 
-**当前状态：可执行研究原型。** 记忆生命周期测试与微型梯度训练已在本机运行；独立的 Qwen3-1.7B 后端用于本地 GPU 接入检查。ScienceWorld、ALFWorld、原版训练后的 Auto-Dreamer Consolidator 和长程对照实验仍待完成。工程检查尚不能证明研究优势。
+**当前状态：可执行研究原型。** 记忆生命周期测试与微型梯度训练已在本机运行；独立的 Qwen3-1.7B 后端用于本地 GPU 接入检查。已有 ScienceWorld、ALFWorld 原生包装接口；正式标准任务实验、原版训练后的 Auto-Dreamer Consolidator 和长程对照仍待完成。工程检查尚不能证明研究优势。
+
+最新方案：[持续学习实验](docs/experiment_protocol.zh-CN.md)，更新于 2026-10-29。它说明如何衡量服务收益、旧能力保持、不同运行年龄的学习能力，以及尚缺哪些接口。
 
 最新交付：[集群交接与工程补齐](docs/cluster_handoff.zh-CN.md)。
+
+计划使用八张 H20；硬件细节、正式模型和运行预算仍待确认。
 
 本轮落实：[混合监督、原生环境和增长统计](docs/implementation_2026-10-24.zh-CN.md)。
 
@@ -69,7 +73,9 @@ LoRA 发布；Gemini 尚未验证。
 
 ## 基准实验阶段
 
-首轮范围是 **ScienceWorld 与 ALFWorld**，WebArena 暂缓。正式模型、集群资源与实验安排等待合作者共同确认，远程模板保留 `TO_*` 占位。当前提示式 Consolidator 尚不是原论文训练后的模型。
+当前主要计划为 **ScienceWorld、Continual Learning Bench 和 MemoryArena**，先完成 ScienceWorld。后两个环境及新的时长截止、检查点、能力探测评估层仍需实现。ALFWorld 保留现有接入。计效用单位和准备状态见[实验方案](docs/experiment_protocol.zh-CN.md)。
+
+八张 H20 暂按两个独立四卡槽部署，不是分布式 SFT。正式模型和预算尚未冻结，远程模板保留 `TO_*` 占位。当前提示式 Consolidator 尚不是原论文训练后的模型。
 
 正式实验前，需要验证远程硬件、模型版本、LoRA 目标层、环境资源、任务清单和基准证据校验器：
 

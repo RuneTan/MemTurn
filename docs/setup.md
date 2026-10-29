@@ -27,9 +27,11 @@ For isolated Qwen3-1.7B inference and language-model SFT on the laptop, see the
 [local model instructions and measured limitations](local_model.md). This path
 does not require benchmark assets or a remote server.
 
-The agreed first environments are ScienceWorld and ALFWorld. WebArena is deferred.
-The formal task, Writer and Consolidator models are pending collaborator discussion.
-The remote templates intentionally leave model identities unresolved.
+The current plan starts with ScienceWorld, then adds Continual Learning Bench and
+MemoryArena. Only ScienceWorld and ALFWorld have native wrappers today. The new
+environment bridges and evaluation layer are pending; see the [experiment plan](experiment_protocol.md).
+Eight H20 GPUs are planned as two independent four-GPU slots. Hardware details and
+formal task/Writer/Consolidator models remain unconfirmed; remote templates retain placeholders.
 Auto-Dreamer's Consolidator was trained from Qwen3-14B. A base Qwen3-14B prompted
 operator is only a development variant, not that trained checkpoint.
 See [Auto-Dreamer section 5.1](https://arxiv.org/html/2605.20616v1).

@@ -6,6 +6,7 @@ Every document has English and Simplified Chinese versions. Plain `.md` files ar
 
 | Document | Purpose |
 | --- | --- |
+| [Continual-learning experiment plan](experiment_protocol.md) | Three environments, service utility, retention, plasticity and implementation gaps |
 | [Cluster setup and handoff](cluster_handoff.md) | Deployment, configuration, budgets and acceptance boundaries |
 | [Architecture](architecture.md) | Components, data flow and policy boundaries |
 | [Setup](setup.md) | Offline checks and remote prerequisites |
@@ -20,4 +21,4 @@ Every document has English and Simplified Chinese versions. Plain `.md` files ar
 | [Exploratory pilot: 2026-10-23](exploratory_chain_2026-10-23.md) | Recorded 182-task results and qualified findings |
 | [Literature](literature.md) | Primary sources and attribution |
 
-Dated implementation, repair and pilot reports preserve their historical state. Use validation status and cluster handoff for current progress.
+Dated implementation, repair and pilot reports preserve their historical state. Use the experiment plan for the current research protocol, and validation status and cluster handoff for engineering progress.

@@ -2,7 +2,9 @@
 
 [English](validation.md) | [简体中文](validation.zh-CN.md)
 
-Updated: 2026-10-24. This is implementation evidence, not paper results.
+Status reviewed: 2026-10-29. The engineering measurements below were recorded on 2026-10-24; they are implementation evidence, not paper results.
+
+The [new experiment plan](experiment_protocol.md) adds three-environment evaluation, fixed-horizon utility, valid old-task retention and adaptation at different stream ages. Continual Learning Bench/MemoryArena bridges, a complete parent-request ledger with cutoff handling, consistent checkpoint export, and isolated learning branches remain unimplemented. Existing arrival, timeout and read-only evaluation support does not establish this full protocol. No new formal experiment results accompany this documentation update.
 
 Latest delivery regression: **132/132 passed on Windows**; **129 passed and 3 optional-dependency skips on Linux**. The local HTTP/process fixture exercises the remote assembly and exact-once result accounting across resume. Two real isolated Qwen3-1.7B SFT jobs each covered all three fixture examples, with three updates and continued LoRA weights. These are engineering checks, not native task gains or a cluster SLA. See the [cluster handoff](cluster_handoff.md); the earlier [audit](audit_repairs_2026-10-24.md) preserves its historical validation counts.
 

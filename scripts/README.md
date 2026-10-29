@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+`build_handoff.py` creates an allowlisted collaboration bundle with file hashes and a ZIP. Use `--documents` to select the directory containing the three design documents and optional experiment manual, and `--summary` for the recorded validation summary. It supports both the reorganized `docs` layout and the earlier layout. Document subdirectories containing API keys, manuscript drafts or PDFs are not copied. The evidence paths refer to existing local validation artifacts; a fresh clone alone does not contain them. `verify_handoff.py` checks a completed bundle against its manifest.
+
 `install_local.ps1` creates `.venv-local`, installs pinned Windows CUDA dependencies and downloads the local model. It checks command failures and does not alter global Python.
 
 `download_local_model.py` reads the local profile and downloads public assets at an immutable revision under `models/`. It does not use a saved Hugging Face token.

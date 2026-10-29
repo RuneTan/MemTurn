@@ -2,7 +2,9 @@
 
 [English](cluster_handoff.md) | [简体中文](cluster_handoff.zh-CN.md)
 
-Date: 2026-10-24. This guide supports deployment review, installation and acceptance before formal models and experiments are selected. **It documents an engineering delivery, not established benchmark gains or cluster service performance.**
+Engineering record: 2026-10-24; planning update: 2026-10-29. This guide supports deployment review, installation and acceptance. **It documents an engineering delivery, not established benchmark gains or cluster service performance.**
+
+The [current experiment plan](experiment_protocol.md) targets ScienceWorld, Continual Learning Bench and MemoryArena, with eight H20 GPUs provisionally split into two independent four-GPU slots. Formal model choices and budgets remain open. The new environment bridges, fixed-horizon ledger and checkpoint/adaptation probes are not yet implemented; the commands below exercise the existing runtime.
 
 ## Research baseline
 

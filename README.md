@@ -6,7 +6,9 @@
 
 MemTurn studies learning across changing task streams with bounded external memory, a fixed-rank LoRA adapter, and explicit learning and service budgets.
 
-**Status: executable research prototype.** The memory lifecycle and a tiny gradient-based fixture run locally. A separate Qwen3-1.7B backend supports local GPU integration checks. ScienceWorld and ALFWorld experiments, the trained Auto-Dreamer Consolidator and long-run comparisons remain pending. Engineering checks do not establish research advantages.
+**Status: executable research prototype.** The memory lifecycle and a tiny gradient-based fixture run locally. A separate Qwen3-1.7B backend supports local GPU integration checks. Native ScienceWorld and ALFWorld wrappers exist; formal benchmark experiments, the trained Auto-Dreamer Consolidator and long-run comparisons remain pending. Engineering checks do not establish research advantages.
+
+Latest plan: [continual-learning experiments](docs/experiment_protocol.md), updated 2026-10-29. It defines service utility, old-skill retention and learning ability at different stream ages, and identifies the interfaces still missing.
 
 Current implementation: [mixed supervision, native environments and growth accounting](docs/implementation_2026-10-24.md).
 
@@ -14,7 +16,7 @@ Latest investigation: [learning and retrieval repairs](docs/learning_retrieval_r
 including measured fixes and the remaining limits on parametric learning.
 
 Latest delivery: [cluster handoff and engineering completion](docs/cluster_handoff.md).
-Formal models and cluster resources remain to be selected with the collaborator.
+Eight H20 GPUs are planned; hardware details, formal models and run budgets remain to be confirmed.
 
 ## Quick start
 
@@ -71,7 +73,9 @@ Start with [architecture](docs/architecture.md), [setup](docs/setup.md) and [val
 
 ## Benchmark phase
 
-Initial environments are **ScienceWorld and ALFWorld**; WebArena is deferred. Formal models and cluster resources remain to be selected with the collaborator; remote profiles retain explicit placeholders. The current prompted Consolidator is not the original trained checkpoint.
+The current primary plan is **ScienceWorld, Continual Learning Bench and MemoryArena**, starting with ScienceWorld. The latter two integrations and the new horizon/checkpoint/probe evaluation layer remain to be implemented. ALFWorld remains available through its existing integration. See the [experiment plan](docs/experiment_protocol.md) for evaluation units and readiness.
+
+The proposed eight-H20 deployment uses two independent four-GPU slots, not distributed SFT. Formal models and budgets are not frozen; remote profiles retain explicit placeholders. The current prompted Consolidator is not the original trained checkpoint.
 
 Remote hardware, model revisions, LoRA target modules, assets, task manifests and benchmark evidence verifiers need validation before formal runs:
 

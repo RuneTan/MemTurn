@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+`build_handoff.py` 按明确名单生成合作交付目录、文件哈希和 ZIP。用 `--documents` 指定包含三份设计文档及可选实验手册的目录，用 `--summary` 指定已有验证摘要。脚本兼容整理后的 `docs` 布局及旧布局，不复制其中的 API 密钥、论文草稿或 PDF 子目录。证据路径指向已有本地验证材料，仅克隆仓库并不具备这些材料。`verify_handoff.py` 按清单校验生成的交付包。
+
 `install_local.ps1` 创建 `.venv-local`，安装固定版本的 Windows CUDA 依赖并下载本地模型。脚本检查命令是否失败，不修改全局 Python。
 
 `download_local_model.py` 读取本地配置，将公开模型的固定版本下载到 `models/`，不使用已保存的 Hugging Face 密钥。

@@ -20,7 +20,7 @@ python -m unittest discover -s tests -t . -v
 
 笔记本上的独立 Qwen3-1.7B 推理和语言模型 SFT 见[本地模型说明与实测限制](local_model.zh-CN.md)。该路径不需要标准任务资源或远程服务器。
 
-首轮环境为 ScienceWorld、ALFWorld，WebArena 暂缓。正式任务模型、Writer 和 Consolidator 仍待与合作者讨论，远程模板有意保留模型占位。
+当前计划先做 ScienceWorld，再加入 Continual Learning Bench 和 MemoryArena。目前只有 ScienceWorld、ALFWorld 已有原生包装接口；新环境桥接和评估层待实现，见[实验方案](experiment_protocol.zh-CN.md)。计划以八张 H20 组成两个独立四卡槽，硬件细节和正式任务模型、Writer、Consolidator 尚未确认，远程模板保留占位。
 
 Auto-Dreamer 的 Consolidator 从 Qwen3-14B 训练而来。直接使用基础 Qwen3-14B 加提示，只能称为开发变体，不是原训练后权重。见 [Auto-Dreamer 第 5.1 节](https://arxiv.org/html/2605.20616v1)。
 

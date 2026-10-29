@@ -14,12 +14,14 @@ PROJECT_DIRS = ('src','tests','scripts','configs','docs')
 PROJECT_FILES = ('README.md','README.zh-CN.md','pyproject.toml','run_memturn.py','.gitignore','.env.example')
 DESIGN_FILES = ('架构设计与搭建操作手册_2026-10-23.md','研究思路备忘录_2026-10-21.md',
                 'MemTurn_架构一致性与工程审计_2026-10-24.md')
+EXPERIMENT_PLAN = '实验执行手册_2026-10-29.md'
 ALLOWED_SUFFIXES = {'.py','.md','.json','.txt','.toml','.sh','.ps1'}
 
 
 def normalized_text(path):
     raw = Path(path).read_bytes()
-    return raw.decode('utf-16') if raw.startswith((b'\xff\xfe',b'\xfe\xff')) else raw.decode('utf-8-sig')
+    text = raw.decode('utf-16') if raw.startswith((b'\xff\xfe',b'\xfe\xff')) else raw.decode('utf-8-sig')
+    return text.replace('\r\n', '\n').replace('\r', '\n')
 
 
 def write_evidence(source, destination):
@@ -30,7 +32,15 @@ def write_evidence(source, destination):
     destination.write_text(text,encoding='utf-8')
 
 
-def build(output, name, summary_path):
+def build(output, name, summary_path, documents=None):
+    # Support an explicit document directory and both supported source layouts.
+    if documents is None:
+        candidates = (ROOT.parent/'docs', ROOT.parent)
+        documents = next((p for p in candidates if all((p/n).is_file() for n in DESIGN_FILES)), candidates[0])
+    documents = Path(documents).resolve()
+    missing = [name for name in DESIGN_FILES if not (documents/name).is_file()]
+    if missing:
+        raise ValueError('missing design documents; set --documents: '+', '.join(missing))
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     bundle = output/name
@@ -45,15 +55,20 @@ def build(output, name, summary_path):
         target = project/source.relative_to(ROOT)
         target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(source,target)
-    for name in DESIGN_FILES:
-        shutil.copyfile(ROOT.parent/name,bundle/name)
-    papers = ROOT.parent/'papers'
+    design_files = list(DESIGN_FILES)
+    if (documents/EXPERIMENT_PLAN).is_file():
+        design_files.append(EXPERIMENT_PLAN)
+    for name in design_files:
+        # The bundle places these documents next to MemTurn, not inside docs/.
+        contents = normalized_text(documents/name).replace('](../MemTurn/', '](MemTurn/')
+        (bundle/name).write_text(contents, encoding='utf-8')
+    papers = documents/'papers'
     if papers.exists():
         for source in papers.glob('*.md'):
             (bundle/'papers').mkdir(exist_ok=True)
             shutil.copyfile(source,bundle/'papers'/source.name)
     for name in ('架构设计与搭建操作手册_工程审计前_2026-10-24.md','研究思路备忘录_工程审计前_2026-10-24.md'):
-        source = ROOT.parent/'过去版本存档'/name
+        source = documents/'过去版本存档'/name
         if source.exists():
             (bundle/'过去版本存档').mkdir(exist_ok=True)
             shutil.copyfile(source,bundle/'过去版本存档'/name)
@@ -77,7 +92,7 @@ def build(output, name, summary_path):
     (validation/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
     readme = '''# MemTurn 合作研究交付包
 
-工程验证日期：2026-10-24。供研究协作审阅和部署准备；正式模型、集群资源与实验方案尚未选定。没有执行远程部署或正式实验。
+工程验证日期：2026-10-24；实验方案更新：2026-10-29。计划使用八张 H20，正式模型、集群细节与预算尚待冻结。没有执行远程部署或正式实验。
 
 建议按以下顺序阅读：
 
@@ -86,6 +101,7 @@ def build(output, name, summary_path):
 3. [当前审计](MemTurn_架构一致性与工程审计_2026-10-24.md)：问题如何修复，实现和验证各到哪一步。
 4. [工程交接说明](MemTurn/docs/cluster_handoff.zh-CN.md)：安装、配置、调度与恢复细节；[验证摘要](validation/summary.json)及同目录报告保存实测证据。
 5. [待确认清单](COLLABORATOR_CHECKLIST.zh-CN.md)：与合作者讨论硬件、模型、数据和正式实验时填写。
+6. [公开实验方案](MemTurn/docs/experiment_protocol.zh-CN.md)：三环境指标、对照与尚待实现的接口。若提供完整实验执行手册，包内也会包含该文件。
 
 在包根目录先校验文件，再进入项目运行不需要模型的测试：
 
@@ -106,7 +122,7 @@ python -X utf8 run_memturn.py demo --config configs/smoke.json --output runs/fir
     (bundle/'README_FIRST.zh-CN.md').write_text(readme,encoding='utf-8')
     checklist = '''# 与合作者共同确认
 
-以下均待讨论；没有预设服务器型号或正式模型。
+计划以八张 H20 组成两个独立四卡槽；服务器细节、正式模型和预算仍待确认。实验接口准备状态见[实验方案](MemTurn/docs/experiment_protocol.zh-CN.md)。
 
 | 项目 | 待填写内容 |
 | --- | --- |
@@ -126,7 +142,8 @@ python -X utf8 run_memturn.py demo --config configs/smoke.json --output runs/fir
     (bundle/'COLLABORATOR_CHECKLIST.zh-CN.md').write_text(checklist,encoding='utf-8')
     suspicious = []
     patterns = (re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
-                re.compile(rb'\b(?:sk-proj-|gsk_|hf_)[A-Za-z0-9_-]{40,}'))
+                re.compile(rb'\b(?:sk-proj-|gsk_|hf_)[A-Za-z0-9_-]{40,}'),
+                re.compile(rb'\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'))
     for path in bundle.rglob('*'):
         if path.is_file() and any(pattern.search(path.read_bytes()) for pattern in patterns):
             suspicious.append(path.relative_to(bundle).as_posix())
@@ -153,10 +170,11 @@ python -X utf8 run_memturn.py demo --config configs/smoke.json --output runs/fir
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',required=True)
-    parser.add_argument('--name',default='MemTurn_handoff_2026-10-24')
+    parser.add_argument('--name',default='MemTurn_handoff_'+datetime.now(timezone.utc).strftime('%Y-%m-%d'))
     parser.add_argument('--summary',required=True)
+    parser.add_argument('--documents', help='Directory containing the explicitly selected design documents; API keys, drafts and PDFs are excluded')
     args = parser.parse_args()
-    print(json.dumps(build(args.output,args.name,args.summary),ensure_ascii=False,indent=2))
+    print(json.dumps(build(args.output,args.name,args.summary,args.documents),ensure_ascii=False,indent=2))
 
 
 if __name__ == '__main__': main()
