@@ -1,2 +1,2 @@
-"""MemTurn's model-independent runtime."""
-__version__ = "0.1.0"
+"""MemTurn model-independent engineering framework."""
+__version__ = "0.2.0"

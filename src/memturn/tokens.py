@@ -15,13 +15,9 @@ class OfflineCounter:
         return len(re.findall(r"[A-Za-z0-9_]+|[^\s]", text))
 
 
-class HuggingFaceCounter:
-    def __init__(self, model_id, revision=None, tokenizer=None):
-        if tokenizer is None:
-            from transformers import AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
-        self.tokenizer = tokenizer
-        self.name = f"huggingface:{model_id}@{revision or 'unfrozen'}"
-
+class TokenizerCounter:
+    """Count with an explicitly supplied tokenizer; never load model assets."""
+    def __init__(self, tokenizer, name):
+        self.tokenizer, self.name = tokenizer, name
     def count(self, text):
         return len(self.tokenizer.encode(text, add_special_tokens=False))

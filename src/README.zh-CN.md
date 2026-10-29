@@ -1,7 +1,5 @@
-# 源码入口
+# 源码导航
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Python 包位于 [memturn](memturn/README.zh-CN.md)。可在项目根目录运行 `python run_memturn.py`，或在独立环境用 `pip install -e .` 安装。
-
-只有选用相应后端时才导入模型和模拟器依赖；不下载模型也可以运行核心记忆测试。
+`memturn` 包分为数据约定／配置、记忆、模型交互、学习、任务和运行系统。入口见[组件约定](../docs/components.zh-CN.md)，实际模型后端由应用提供。

@@ -3,7 +3,7 @@ import json
 from dataclasses import replace
 
 from ..contracts import Example, Support
-from ..models.http import task_messages
+from ..models.protocol import task_messages
 
 
 def covered_text(memory, refs):

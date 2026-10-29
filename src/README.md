@@ -1,7 +1,5 @@
-# Source code
+# Source map
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-The Python package is under [memturn](memturn/README.md). Use `python run_memturn.py` from the checkout, or install it with `pip install -e .` in a project environment.
-
-Model and simulator dependencies are imported only when the relevant backend is selected. Core memory tests remain usable without model downloads.
+The `memturn` package separates contracts/configuration, memory, models, learning, tasks and runtime. Start with [component contracts](../docs/components.md). Concrete model backends are supplied by applications.

@@ -1,6 +1,6 @@
 """Two checkable tool families. A development fixture, not a paper benchmark."""
 import json
-from ..contracts import Episode, Example, Memory, Support, Task, Transition, dumps
+from memturn.contracts import Episode, Example, Memory, Support, Task, Transition, dumps
 
 
 PREPARE = {"vault:v1": "inspect_lock", "vault:v2": "check_permission",

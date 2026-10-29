@@ -2,13 +2,13 @@
 from collections import defaultdict
 from dataclasses import replace
 import hashlib
-from ..contracts import Example, Memory, Support
-from ..learning.materials import bind_example, rule_question
+from memturn.contracts import Example, Memory, Support
+from memturn.learning.materials import bind_example, rule_question
 
 
 class ToyWriter:
     def write(self, episode, batch):
-        from ..tasks.toy import PREPARE
+        from tests.fixtures.environment import PREPARE
         for index, step in enumerate(episode.steps):
             if step.accepted and step.action == PREPARE.get(episode.condition):
                 text = (f"For {episode.condition}, first call {step.action}. "

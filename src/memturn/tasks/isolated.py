@@ -4,7 +4,7 @@ from dataclasses import asdict
 import hashlib
 
 from ..contracts import dumps
-from ..models.http import remaining_timeout
+from ..models.protocol import remaining_timeout
 from ..runtime.process import run_worker
 
 

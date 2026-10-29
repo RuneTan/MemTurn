@@ -7,12 +7,12 @@ import unittest
 
 from memturn.config import Config
 from memturn.contracts import Artifact, Episode, Memory, Step, Support, Task
-from memturn.memory.consolidation import ToyConsolidator, ToyWriter
+from tests.fixtures.operators import ToyConsolidator, ToyWriter
 from memturn.memory.policies import cold_region, pack_half, select_one
 from memturn.memory.store import BudgetExceeded, StaleSnapshot, Store
 from memturn.memory.validation import Validator
 from memturn.runtime.service import Runtime
-from memturn.tasks.toy import FINISH, PREPARE, ToyEnvironment, ToyPolicy, ToyVerifier
+from tests.fixtures.environment import FINISH, PREPARE, ToyEnvironment, ToyPolicy, ToyVerifier
 from memturn.tokens import OfflineCounter
 
 
@@ -247,19 +247,6 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(len(self.store.memories()), 1)
         self.assertEqual(self.store.stats()["completed"], 1)
 
-    def test_heldout_probes_do_not_write_or_refresh_memory(self):
-        import json
-        from memturn.chain_support import probe_actions
-        self.add("source")
-        before = self.store.stats()
-        class Policy:
-            def act(self, observation, *args):
-                state = json.loads(observation)
-                return PREPARE[f"{state['family']}:{state['version']}"]
-        rows = probe_actions(None, self.store, Policy(), self.counter, self.config, 0)
-        self.assertEqual(len(rows), 32)
-        self.assertTrue(all(r["correct"] for r in rows))
-        self.assertEqual(self.store.stats(), before)
 
     def test_restart_requeues_pending_writer_and_cancels_uncommitted_training(self):
         ep = episode("pending")

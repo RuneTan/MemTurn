@@ -9,7 +9,7 @@ from ..contracts import Artifact, Episode, ExposedMemory, RetrievalEvent, Retrie
 from ..memory.policies import cold_region, pack_half, select_one
 from ..memory.retrieval import Retriever
 from ..memory.store import BudgetExceeded, StaleSnapshot
-from ..models.http import bounded_operation, call_deadline
+from ..models.protocol import bounded_operation, call_deadline
 
 
 class Runtime:

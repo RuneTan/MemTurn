@@ -4,7 +4,7 @@ import uuid
 from dataclasses import replace
 from ..contracts import Example, Memory, Support
 from ..learning.materials import covered_text
-from .http import parse_json
+from .protocol import parse_json
 
 
 def decode_memory(value, batch, memory_id=None, source_lookup=None):

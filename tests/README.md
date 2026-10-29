@@ -1,30 +1,5 @@
-# Tests
+# Component tests
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Epoch-schedule checks verify that all selected examples receive one update each
-and that a final short microbatch is retained. Legacy schedule checks remain for
-historical-profile compatibility.
-
-Run core regression checks from the checkout:
-
-```text
-python -X utf8 -m unittest discover -s tests -t . -v
-```
-
-`test_core.py` covers provenance, one-entry selection, capacity budgets, access age, transactional publication, failure/restart recovery and foreground work during blocked training.
-
-`test_backends.py` checks mocked HTTP/environment interfaces, assistant-only SFT labels, remote profile gating and real tiny LoRA gradients when PyTorch is installed.
-
-These tests do not download weights or execute the local language model. Run `local-smoke` explicitly for that integration; measured results and remaining benchmark checks are in [validation](../docs/validation.md).
-
-`test_chain.py` checks grouped task identities, Writer token-budget pauses,
-daily-limit classification and raw-response audit records. Core tests also check
-deferred-source replay and that held-out probes leave learning state unchanged.
-
-`test_learning_retrieval_repairs.py` checks complete sample coverage, fail-closed
-training budgets, unmodified source-state inputs, applicability scopes, visible
-tool transcripts, memory-disabled evaluation and separation of tool errors from
-environment evidence. It also guards against copyable command placeholders.
-
-`test_mixed_materials.py` covers typed mixed training, source/content ownership, leakage rejection, no silent action-only fallback, actual retrieval exposure, public/private separation, growth accounting/rollback, replay tampering and separate-worker restart. Current regression: 62 tests. Native simulator and real-LM checks are separate scripts, not unit-test performance claims.
+Run the standard-library suite described in [development](../docs/development.md). Fixtures are isolated test doubles, not a runnable research pilot.

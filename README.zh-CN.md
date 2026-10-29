@@ -2,98 +2,33 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**资源约束下持续学习 Agent 的记忆内化**
+**有限记忆下持续学习 Agent 的经验整理与选择性内化框架。**
 
-MemTurn 研究如何让 Agent 面对持续变化的任务流，在有限外部记忆、固定秩 LoRA、明确学习成本与服务预算下，持续从自身经验中学习。
+MemTurn 面向持续变化的任务流：在明确预算内保存经历，把相关经历整理成可复用记忆和训练材料，并协调参数版本发布与外部记忆退出。
 
-**当前状态：可执行研究原型。** 记忆生命周期测试与微型梯度训练已在本机运行；独立的 Qwen3-1.7B 后端用于本地 GPU 接入检查。已有 ScienceWorld、ALFWorld 原生包装接口；正式标准任务实验、原版训练后的 Auto-Dreamer Consolidator 和长程对照仍待完成。工程检查尚不能证明研究优势。
+仓库保留核心实现、组件约定和回归测试，不附带模型、API 客户端、模型下载脚本、小实验数据或试跑结果。使用者自行提供任务策略、经验组件、领域校验器和学习器。它不是开箱即跑的标准任务服务，也尚未证明持续学习优势。
 
-最新方案：[持续学习实验](docs/experiment_protocol.zh-CN.md)，更新于 2026-10-29。它说明如何衡量服务收益、旧能力保持、不同运行年龄的学习能力，以及尚缺哪些接口。
+## 系统怎样工作
 
-最新交付：[集群交接与工程补齐](docs/cluster_handoff.zh-CN.md)。
+1. 为当前任务固定模型版本和记忆视图，先检索再行动。
+2. 根据本任务真实观察、动作和反馈写入有依据的经验。
+3. 在有限区域内跨任务整理，产生替换记忆和对应训练材料。
+4. 最多选择一条合格记忆，优先考虑不同任务的有效支持数。
+5. 学习时屏蔽目标记忆及已识别的同源路径。
+6. 准备新模型版本，然后原子更新发布指针并退出所选记忆版本。
 
-计划使用八张 H20；硬件细节、正式模型和运行预算仍待确认。
+容量整理单独进行：处理冷记忆区域，在输入 token 数的一半预算内保留完整输出，不触发训练。发布成功只是工程流程完成，不代表已经验证模型掌握该经验。
 
-本轮落实：[混合监督、原生环境和增长统计](docs/implementation_2026-10-24.zh-CN.md)。
+## 从哪里开始阅读
 
-最新调查：[训练与检索修复](docs/learning_retrieval_repairs_2026-10-24.zh-CN.md)，包含定向
-修改、实测结果和参数化学习仍未解决的部分。
-
-## 快速开始
-
-核心小环境只需要 Python 3.10 及以上，使用标准库：
-
-```text
-python run_memturn.py demo --config configs/smoke.json
-python -X utf8 -m unittest discover -s tests -t . -v
-```
-
-已有 PyTorch 时，可在演示命令末尾加 `--train-tiny`，验证微型动作分类器的 CPU 梯度更新。它与语言模型 SFT 是两个独立后端。
-
-## 本地 GPU 模型
-
-本地配置使用固定版本的 [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) BF16 权重。Windows 脚本将 CUDA 12.8 版 PyTorch 安装到 `.venv-local`，模型下载到 `models/`：
-
-```powershell
-.\scripts\install_local.ps1
-.\.venv-local\Scripts\python.exe run_memturn.py local-smoke --tasks 8
-.\.venv-local\Scripts\python.exe run_memturn.py local-smoke --tasks 8 --operators fixture --train
-```
-
-第一种运行由模型承担任务、Writer 和 Consolidator；第二种使用可校验的小环境经验组件，单独验证真实任务模型推理和语言模型 LoRA SFT。两者都使用开发小环境，默认每个任务后等待后台，不用于测量不停机服务。
-
-硬件、实测结果和复现步骤见 [本地模型说明](docs/local_model.zh-CN.md)。
-
-可通过 `--writer-profile` 单独选用固定的 API Writer。免费候选与配置方法见
-[接口说明](docs/writer_api.zh-CN.md)。Groq 小规模试跑已接纳四条记忆，并完成一次本地
-LoRA 发布；Gemini 尚未验证。
-
-受额度约束的探索运行见 [分组任务链说明](docs/grouped_chain.zh-CN.md)。该模式计划至多
-500 个分组小环境任务，保留 Writer 原始候选，并在预算处保存可续跑断点。
-
-## 系统设计
-
-每个任务持有固定模型版本与记忆视图，开始时检索一次，并可按需追加有限次检索。后台负责写入有来源的经验、巩固有限区域，并先提交通过校验的替换记忆。
-
-独立选择器每个常规批次至多选一条合格的巩固记忆，优先选择获得更多不同任务实例有效支持的结果。学生不能检索选中记忆、其父项和已识别的同源记忆。训练继续更新固定秩 LoRA；候选版本准备完成后，才更新发布指针并移除选中记忆的对应版本。
-
-容量维护单独处理冷记忆：在区域预算内选取最久未访问记忆的初始比例，巩固后按有效任务支持数排序，将完整结果装入实际输入 token 数一半的返还预算。返还条数自然产生，这一路不训练。拒绝写入的事件会被记录。
-
-## 目录说明
-
-| 位置 | 职责 |
+| 入口 | 内容 |
 | --- | --- |
-| [docs](docs/README.zh-CN.md) | 架构、部署、验证与文献 |
-| [configs](configs/README.zh-CN.md) | 离线、本地和远程配置 |
-| [scripts](scripts/README.zh-CN.md) | 隔离安装与固定版本下载 |
-| [src](src/README.zh-CN.md) | 记忆、模型、环境与训练模块 |
-| [tests](tests/README.zh-CN.md) | 生命周期、失败、并发与后端检查 |
+| [架构概况](docs/architecture.zh-CN.md) | 数据流、权限、生命周期与资源边界 |
+| [组件与接口](docs/components.zh-CN.md) | 实际模块、输入输出和扩展位置 |
+| [开发说明](docs/development.zh-CN.md) | 安装、离线测试和集成责任 |
+| [源码导航](src/README.zh-CN.md) | 实现目录 |
+| [相关文献](docs/literature.zh-CN.md) | 原始研究来源 |
 
-建议从 [架构](docs/architecture.zh-CN.md)、[部署](docs/setup.zh-CN.md) 和 [验证状态](docs/validation.zh-CN.md) 开始。主要目录说明和技术文档均提供中英文版本。
+设计采用冻结基座与使用者提供的固定秩适配器，Writer 和 Consolidator 在任务流中保持固定。不内置额外教师、强化学习、参数扩容或掌握验证后退出机制。
 
-## 基准实验阶段
-
-当前主要计划为 **ScienceWorld、Continual Learning Bench 和 MemoryArena**，先完成 ScienceWorld。后两个环境及新的时长截止、检查点、能力探测评估层仍需实现。ALFWorld 保留现有接入。计效用单位和准备状态见[实验方案](docs/experiment_protocol.zh-CN.md)。
-
-八张 H20 暂按两个独立四卡槽部署，不是分布式 SFT。正式模型和预算尚未冻结，远程模板保留 `TO_*` 占位。当前提示式 Consolidator 尚不是原论文训练后的模型。
-
-正式实验前，需要验证远程硬件、模型版本、LoRA 目标层、环境资源、任务清单和基准证据校验器：
-
-```text
-python run_memturn.py check-profile --profile configs/scienceworld.example.json
-```
-
-模板缺项时会在模型执行前停止。任务最终成功，不能自动证明所有中间动作都适合成为监督数据。
-
-## 复现与发布范围
-
-报告、审计、状态库和适配器写入 `runs/`。权重、虚拟环境、缓存、凭据和生成产物不进入 Git；通过固定配置与依赖记录复现安装。
-
-克隆仓库：
-
-```text
-git clone https://github.com/RuneTan/MemTurn.git
-cd MemTurn
-```
-
-基准表现、长程稳定性和创新性仍需实证检验。来源见 [原始文献](docs/literature.zh-CN.md)。本仓库不附加软件许可证（GitHub：None）。
+仓库未附软件许可证，GitHub 显示为 None。

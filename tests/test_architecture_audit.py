@@ -11,13 +11,13 @@ from unittest.mock import patch
 
 from memturn.config import Config
 from memturn.contracts import Artifact, Memory, Step, Support, Task
-from memturn.memory.consolidation import ToyConsolidator, ToyWriter
+from tests.fixtures.operators import ToyConsolidator, ToyWriter
 from memturn.memory.policies import cold_region
 from memturn.memory.store import BudgetExceeded, StaleSnapshot, Store
 from memturn.memory.validation import Validator
 from memturn.models.agents import ChatWriter
 from memturn.runtime.service import Runtime
-from memturn.tasks.toy import ToyEnvironment, ToyPolicy, ToyVerifier
+from tests.fixtures.environment import ToyEnvironment, ToyPolicy, ToyVerifier
 from memturn.tokens import OfflineCounter
 from tests.test_core import episode
 
@@ -261,21 +261,7 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.assertGreater(stats['queued_source_bytes'],0)
         self.assertEqual(stats['source_training_bytes'],2*stats['queued_source_bytes'])
 
-    def test_http_response_has_hard_byte_limit(self):
-        from memturn.models.http import ChatConfig, HttpChat
-        client = HttpChat(ChatConfig('https://unused.invalid','test',max_response_bytes=16))
-        with patch('memturn.models.http.urlopen',return_value=io.BytesIO(b' '*17)):
-            with self.assertRaisesRegex(ValueError,'response exceeds'):
-                client.complete([])
 
-    def test_large_writer_request_is_reserved_before_call(self):
-        from memturn.chain_support import BudgetedChat, ExperimentPaused
-        class Client:
-            usage = {'requests':0,'prompt_tokens':0,'completion_tokens':0}
-            def complete(self,*args): raise AssertionError('overbudget request sent')
-        client = BudgetedChat(Client(),lambda event:None,token_budget=5000)
-        with self.assertRaises(ExperimentPaused):
-            client.complete([{'role':'user','content':'x'*6000}])
 
     def test_shutdown_is_idempotent_and_rejects_new_tasks(self):
         runtime = self.runtime_for()
@@ -339,45 +325,7 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.assertEqual(self.store.model_version,'current')
         self.assertEqual(self.store._get('publication')['state'],'COMMITTED')
 
-    def test_hf_configuration_and_unregistered_directory_limits(self):
-        from memturn.learning.huggingface import HuggingFaceLearner, SFTConfig
-        root = Path(self.temp.name)/'adapters'
-        learner=HuggingFaceLearner(root,SFTConfig('model','revision',('q_proj',)),None)
-        for i in range(3): (root/f'unregistered_{i}').mkdir()
-        self.assertFalse(learner.has_artifact_capacity(3))
-        path=root/'unregistered_0'
-        (path/'adapter_config.json').write_text(json.dumps({'r':8,'lora_alpha':16,'target_modules':['v_proj']}))
-        (path/'adapter_model.safetensors').write_bytes(b'fixture')
-        checksums={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in path.iterdir()}
-        artifact=Artifact(path.name,str(path),'huggingface_lora','base',
-                          {'checksums':checksums,'model_revision':'revision','rank':8})
-        with self.assertRaisesRegex(ValueError,'target modules'):
-            learner._validate_artifact(artifact)
 
-    def test_qa_diagnostic_uses_text_prompt(self):
-        # Execute the actual diagnostic entry point with fake backends: a wrong
-        # probe prompt previously invalidated the recorded learning conclusion.
-        from scripts.check_mixed_sft import main
-        from types import SimpleNamespace
-        from memturn.contracts import Episode
-        path=Path(self.temp.name)/'episodes.json'
-        source=Episode('native','scienceworld','v',(Step('room','look','room',False),),0,False)
-        path.write_text(json.dumps([source.to_dict()]),encoding='utf-8')
-        captured=[]
-        class Serving:
-            usage={}
-            def __init__(self,*args): pass
-            def complete(self,messages,**kwargs): captured.extend(messages); return 'text answer'
-        class Learner:
-            def __init__(self,*args): pass
-            def train(self,*args):
-                return Artifact('test','unused','test','base',{'steps':2,'examples_by_type':{'rule_qa':1,'decision':1},'sample_coverage':1})
-            def prepare(self,*args): pass
-            def retain(self,*args): pass
-        with patch('memturn.models.local.LocalHFChat',Serving), patch('memturn.learning.huggingface.HuggingFaceLearner',Learner), patch('builtins.print'):
-            main(SimpleNamespace(episodes=str(path),output=str(Path(self.temp.name)/'diagnostic'),jobs=1))
-        self.assertIn('Answer the experience question in text',captured[0]['content'])
-        self.assertNotIn('Return only one JSON object',captured[0]['content'])
 
 
 if __name__ == '__main__': unittest.main()
