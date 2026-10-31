@@ -35,3 +35,5 @@
 Construct `Store(path, config, counter)`, a `Validator(store, verifier)`, then `Runtime(store, writer, consolidator, validator, learner=...)`. Execute with `run_task(task, environment, policy)` and close runtime before store. No default backend is selected. Passing `learner=None` disables parameter learning; a read-only runtime uses no Writer, Consolidator or validator.
 
 The complete method needs functional application components. An interface alone does not implement learning or prove internalization. See [development responsibilities](development.md).
+
+The maintenance hyperparameters are `batch_size` and `capacity_interval_batches > 1`; see [schedule and recovery semantics](architecture.md).

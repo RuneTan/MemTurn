@@ -33,8 +33,7 @@ class Config:
     retrieval_top_k: int = 3
     retrieval_token_cap: int = 768
     max_extra_searches: int = 2
-    capacity_trigger_ratio: float = 0.9
-    capacity_target_ratio: float = 0.8
+    capacity_interval_batches: int = 4
     cold_fraction: float = 0.2
     return_token_ratio: float = 0.5
     max_capacity_regions: int = 2
@@ -58,8 +57,10 @@ class Config:
                 raise ValueError(f"{name} must be positive")
             if name not in ('writer_timeout_seconds','consolidation_timeout_seconds') and not isinstance(getattr(self,name),int):
                 raise ValueError(f'{name} must be an integer')
-        if not 0 < self.capacity_target_ratio < self.capacity_trigger_ratio <= 1:
-            raise ValueError("Require 0 < capacity_target_ratio < capacity_trigger_ratio <= 1")
+        if (isinstance(self.capacity_interval_batches, bool)
+                or not isinstance(self.capacity_interval_batches, int)
+                or self.capacity_interval_batches <= 1):
+            raise ValueError("capacity_interval_batches must be an integer greater than 1")
         if not 0 < self.cold_fraction <= 1 or self.return_token_ratio != 0.5:
             raise ValueError("v0.2 requires a positive cold_fraction and a fixed half return budget")
         if (isinstance(self.max_extra_searches,bool) or not isinstance(self.max_extra_searches,int)

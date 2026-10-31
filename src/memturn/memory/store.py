@@ -48,7 +48,7 @@ class Store:
         """)
         defaults = {"version": 0, "completed": 0, "utility": 0.0, "refused_writes": 0,
                     "model_version": "base", "artifact": None, "publication": None,
-                    "regular_batch": -1, "access_seq": 0, "stream": None, "compute_ledger": {},
+                    "regular_batch": -1, "capacity_batch": 0, "access_seq": 0, "stream": None, "compute_ledger": {},
                     "growth_initial_tokens":sum(counter.count(m.payload) for m in self._memories()),
                     "growth_admitted_tokens":0, "growth_regular_released_tokens":0,
                     "growth_internalized_tokens":0, "growth_capacity_released_tokens":0}
@@ -503,3 +503,13 @@ class Store:
     def mark_regular(self, batch=None):
         with self.transaction():
             self._set("regular_batch", self.batch if batch is None else batch)
+
+    def capacity_due(self, batch=None):
+        with self.lock:
+            batch = self.batch if batch is None else batch
+            interval = self.config.capacity_interval_batches
+            return batch // interval > self._get("capacity_batch") // interval
+
+    def mark_capacity(self, batch):
+        with self.transaction():
+            self._set("capacity_batch", batch)

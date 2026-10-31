@@ -123,7 +123,7 @@ class CoreTests(unittest.TestCase):
         for i in range(8): self.store.record_result(episode(f"clock{i}"), keep_source=False)
         runtime = self.make_runtime()
         before = self.store.stats()["active_tokens"]
-        runtime.capacity_maintenance(incoming_tokens=self.config.memory_token_cap)
+        runtime.capacity_maintenance()
         after = self.store.stats()["active_tokens"]
         self.assertGreater(before, after)
         self.assertLessEqual(after, before // 2)

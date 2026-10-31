@@ -35,3 +35,5 @@
 先构造 `Store(path, config, counter)`、`Validator(store, verifier)`，再构造 `Runtime(store, writer, consolidator, validator, learner=...)`。通过 `run_task(task, environment, policy)` 执行，结束时先关闭运行系统，再关闭数据库。不预选任何后端。`learner=None` 关闭参数学习；只读运行不设置 Writer、Consolidator 和校验器。
 
 完整方法仍需要实际工作的应用组件。接口本身不执行学习，也不能证明内化。集成责任见[开发说明](development.zh-CN.md)。
+
+维护频率超参数为 `batch_size` 和 `capacity_interval_batches > 1`，详见[周期与恢复语义](architecture.zh-CN.md)。

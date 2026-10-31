@@ -17,7 +17,7 @@ This repository contains the core implementation, component contracts and regres
 5. Train without exposing that memory or its identified source aliases to the student.
 6. Prepare the new model version, then atomically publish its pointer and retire the selected memory version.
 
-Capacity maintenance is separate: summarize a cold region and retain whole outputs within half its input token budget, without starting training. Publication is a successful engineering transition, not proof that the model mastered the experience.
+Periodic cold-memory maintenance is separate: summarize a cold region and retain whole outputs within half its input token budget, without starting training. Publication is a successful engineering transition, not proof that the model mastered the experience.
 
 ## Explore the framework
 
@@ -32,3 +32,9 @@ Capacity maintenance is separate: summarize a cold region and retain whole outpu
 The design assumes a frozen base model and a fixed-rank adapter supplied by the application. Writer and Consolidator behavior is fixed during a stream. No independent teacher, reinforcement learning, growing parameter capacity or mastery-gated retirement is built in.
 
 Published without a software license (GitHub: None).
+
+## Maintenance schedule
+
+`Config.batch_size` controls the regular use/internalization interval in accounted source-task outcomes (default 4). `Config.capacity_interval_batches` is an integer greater than 1 (default 4); cold-memory consolidation without internalization runs every `batch_size * capacity_interval_batches` outcomes (default 16). Successful, failed and rejected outcomes advance the existing completion counter; read-only probes do not. The same Consolidator is used, with no training on the cold path. Coincident schedules run regular maintenance first, then cold maintenance.
+
+Each cold event processes up to `max_capacity_regions` regions (default 2), even below the memory limit. Empty/failed attempts wait for the next window. Busy workers coalesce overdue windows; persistent attempt markers prevent repeated claims on restart. A claimed attempt interrupted by a crash is not guaranteed to replay. The hard memory cap still rejects oversized writes, without triggering extra consolidation. Occupancy-based `capacity_trigger_ratio` and `capacity_target_ratio` are removed; old configurations must replace them with `capacity_interval_batches`. These are development defaults, not tuned research settings.

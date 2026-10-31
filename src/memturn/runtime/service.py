@@ -39,7 +39,7 @@ class Runtime:
                 self.event('adapter_recovery', **recovery)
         for episode in (() if self.read_only else store.pending_episodes()):
             self.queue.put_nowait(episode)
-        if not self.read_only and self.queue.empty() and store.regular_due():
+        if not self.read_only and self.queue.empty() and (store.regular_due() or store.capacity_due()):
             self.queue.put_nowait("regular")
         self.worker = threading.Thread(target=self._worker, name="memturn-maintenance", daemon=True)
         self.worker.start()
@@ -215,7 +215,7 @@ class Runtime:
             except queue.Full:
                 self.store.refuse_write()
                 self.store.finish_source(episode.task_id)
-        elif self.store.regular_due():
+        elif self.store.regular_due() or self.store.capacity_due():
             try:
                 self.queue.put_nowait("regular")
             except queue.Full:
@@ -230,7 +230,7 @@ class Runtime:
                           self.store.model_version, status=status, task_spec=asdict(task))
         self.store.record_result(episode, keep_source=False, sequence=sequence,
                                  utility=self.utility(episode) if self.utility else None)
-        if self.store.regular_due():
+        if self.store.regular_due() or self.store.capacity_due():
             try: self.queue.put_nowait('regular')
             except queue.Full: pass
         self.event('task_completed', **episode.to_dict())
@@ -272,8 +272,17 @@ class Runtime:
 
     def _run_regular_if_due(self):
         with self.maintenance_lock:
-            if self.store.regular_due():
-                self.regular_maintenance(scheduled=True)
+            # Coalesce overdue windows; never claim arrivals during this work.
+            batch = self.store.batch
+            try:
+                if self.store.regular_due():
+                    self.regular_maintenance(scheduled=True)
+            finally:
+                if self.store.capacity_due(batch):
+                    self.store.mark_capacity(batch)
+                    self.event("capacity_scheduled", batch=batch,
+                               interval_batches=self.config.capacity_interval_batches)
+                    self.capacity_maintenance()
 
     @bounded_operation('writer_timeout_seconds')
     def _write(self, episode):
@@ -283,9 +292,6 @@ class Runtime:
             self.event("writer_candidate", task_id=episode.task_id, memory=memory.to_dict())
         if (memory is not None and memory.task_ids == {episode.task_id}
                 and not memory.parents and not memory.consolidated and self.validator.valid_memory(memory)):
-            projected = self.store.stats()["active_tokens"] + self.counter.count(memory.payload)
-            if projected >= self.config.memory_token_cap * self.config.capacity_trigger_ratio:
-                self.capacity_maintenance(incoming_tokens=self.counter.count(memory.payload))
             try:
                 self.store.append(memory, source_task_id=episode.task_id)
                 self.event("memory_written", memory_ref=memory.ref)
@@ -465,13 +471,10 @@ class Runtime:
                     self.candidate_versions.discard(artifact.version)
             self.collect_adapters()
 
-    def capacity_maintenance(self, incoming_tokens=0):
+    def capacity_maintenance(self):
         with self.maintenance_lock:
             processed = set()
             for _ in range(self.config.max_capacity_regions):
-                stats = self.store.stats()
-                if stats["active_tokens"] + incoming_tokens <= self.config.memory_token_cap * self.config.capacity_target_ratio:
-                    return
                 region = cold_region(self.store.memories(), self.store.batch, self.counter,
                                      self.config, excluded=processed)
                 if not region:
@@ -499,5 +502,3 @@ class Runtime:
                 except (ValueError, BudgetExceeded, StaleSnapshot, TimeoutError, RuntimeError) as error:
                     self.store.job(job_id, mode="capacity", state="FAILED", reason=str(error))
                     self.event("capacity_failed", reason=str(error))
-            if self.store.stats()["active_tokens"] + incoming_tokens > self.config.memory_token_cap * self.config.capacity_target_ratio:
-                self.event("capacity_target_unmet")
