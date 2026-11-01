@@ -153,18 +153,3 @@ class ProcessRPC:
         for stream in (process.stdin, process.stdout, process.stderr):
             try: stream.close()
             except OSError: pass
-
-
-def run_worker(operation, payload, timeout, max_bytes=8388608, rss_limit_bytes=None, return_metrics=False):
-    env = dict(os.environ)
-    source = str(Path(__file__).resolve().parents[2])
-    env['PYTHONPATH'] = source + os.pathsep + env.get('PYTHONPATH', '')
-    rpc = ProcessRPC([sys.executable, '-u', '-m', 'memturn.worker'], timeout, max_bytes,
-                     env=env, rss_limit_bytes=rss_limit_bytes)
-    try:
-        started = time.monotonic()
-        result = rpc.request(operation, payload=payload)
-        return ({'result':result, 'peak_process_tree_rss_bytes':rpc.peak_rss_bytes,
-                 'wall_seconds':time.monotonic()-started} if return_metrics else result)
-    finally:
-        rpc.close()

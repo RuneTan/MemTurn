@@ -430,7 +430,7 @@ class Runtime:
         artifact = None
         try:
             self.store.job(job_id, mode="regular", state="DATA_VALIDATED", selected=selected.ref,
-                           support_tasks=self.validator.support_count(selected))
+                           support_tasks=self.validator.source_coverage_count(selected))
             examples = self.validator.training_examples(selected)
             histories = self.training_histories(selected, examples)
             if self.learning_budget:

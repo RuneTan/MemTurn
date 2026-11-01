@@ -51,46 +51,8 @@ class ToyEnvironment:
         pass
 
 
-class ToyVerifier:
-    def verify_support(self, memory, episode, support):
-        if support.task_id != episode.task_id or not 0 <= support.step < len(episode.steps):
-            return False
-        step = episode.steps[support.step]
-        expected = PREPARE.get(episode.condition)
-        return bool(expected and step.accepted and step.action == expected
-                    and memory.applicability == episode.condition
-                    and expected in memory.content)
-
-    def verify_example(self, example, episode):
-        if example.task_id != episode.task_id or not 0 <= example.step < len(episode.steps):
-            return False
-        step = episode.steps[example.step]
-        source_valid = step.accepted and step.action == example.target and step.action == PREPARE.get(episode.condition)
-        if example.input_step is None:
-            return source_valid and step.observation == example.prompt
-        if not source_valid or example.input_step != 0 or episode.steps[0].observation != example.prompt:
-            return False
-        # Replaying is fixture-specific: an arbitrary later action may need prerequisites.
-        try:
-            state = json.loads(example.prompt)
-            if state['phase'] != 'prepare' or state['feedback']:
-                return False
-            family, version = episode.condition.split(':')
-            env = ToyEnvironment()
-            initial = env.reset(Task(episode.task_id, family, version, state['object']))
-            if initial != example.prompt:
-                return False
-            replay = env.step(example.target)
-            return replay.accepted and not replay.done
-        except (KeyError, TypeError, ValueError):
-            return False
-        finally:
-            if 'env' in locals():
-                env.close()
-
-
 class ToyPolicy:
-    """Uses visible feedback or retrieved rules, never the verifier's answer table."""
+    """Uses visible feedback or retrieved rules, never the fixture answer table."""
     def __init__(self, learned_policy=None):
         self.learned_policy = learned_policy
 

@@ -17,7 +17,7 @@ from memturn.memory.store import BudgetExceeded, StaleSnapshot, Store
 from memturn.memory.validation import Validator
 from memturn.models.agents import ChatWriter
 from memturn.runtime.service import Runtime
-from tests.fixtures.environment import ToyEnvironment, ToyPolicy, ToyVerifier
+from tests.fixtures.environment import ToyEnvironment, ToyPolicy
 from memturn.tokens import OfflineCounter
 from tests.test_core import episode
 
@@ -26,7 +26,7 @@ class ArchitectureAuditTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.temp.name)/'state.sqlite', Config(), OfflineCounter())
-        self.validator = Validator(self.store, ToyVerifier())
+        self.validator = Validator(self.store)
         self.runtime = None
 
     def tearDown(self):
@@ -166,13 +166,12 @@ class ArchitectureAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'current episode'):
             ChatWriter(Client()).write(episode('b'),0)
 
-    def test_domain_verifier_exception_fails_closed(self):
+    def test_missing_source_fails_closed(self):
         raw = self.add('a')
-        class Broken:
-            def verify_support(self,*args): raise RuntimeError('unavailable checker')
-        validator = Validator(self.store,Broken())
-        self.assertFalse(validator.valid_memory(raw))
-        self.assertEqual(validator.support_count(raw),0)
+        self.store.db.execute("DELETE FROM episodes WHERE id=?", ('a',))
+        self.store.db.commit()
+        self.assertFalse(self.validator.valid_memory(raw))
+        self.assertEqual(self.validator.source_coverage_count(raw), 0)
 
     def test_evaluation_runtime_does_not_recover_or_consume_pending_jobs(self):
         self.store.record_result(episode('pending'))

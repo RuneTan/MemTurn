@@ -54,15 +54,18 @@ def _decode_examples(value, memory, source_lookup):
             continue
         if kind != 'decision':
             raise ValueError('unknown example type')
-        if "prompt" not in item or "target" not in item:
-            episode = source_lookup(item["task_id"]) if source_lookup else None
-            index = item["step"]
-            if not episode or not isinstance(index, int) or not 0 <= index < len(episode.steps):
-                raise ValueError("training reference has no available source step")
-            source = episode.steps[index]
-            if not source.accepted and not source.evidence.get('native_environment'):
-                raise ValueError("training reference points to an unaccepted source action")
-            item.update(prompt=source.observation, target=source.action)
+        episode = source_lookup(item["task_id"]) if source_lookup else None
+        index = item["step"]
+        if (not episode or isinstance(index, bool) or not isinstance(index, int)
+                or not 0 <= index < len(episode.steps)):
+            raise ValueError("training reference has no available source step")
+        source = episode.steps[index]
+        if not source.accepted and source.evidence.get('action_admissible') is not True:
+            raise ValueError("training reference points to an unaccepted source action")
+        if ("prompt" in item and item["prompt"] != source.observation
+                or "target" in item and item["target"] != source.action):
+            raise ValueError("training material differs from original source step")
+        item.update(prompt=source.observation, target=source.action)
         examples.append(Example(item['task_id'], item['step'], item['prompt'], item['target'],
             input_step=item.get('input_step'), example_type='decision',
             output_kind=item.get('output_kind', 'environment_action'),
@@ -79,7 +82,7 @@ SCHEMA = ('Memory fields: content:string, applicability:string, '
           'specific conclusion. Step indices are ZERO-BASED. Do not attach unrelated '
           'source IDs. Examples cite accepted source steps; the program copies their '
           'exact observation/action. Never invent prompt, target or feedback text. '
-          'Preserve version conditions and unresolved uncertainty.')
+          'Preserve version conditions and unresolved uncertainty. Free-form summaries are allowed; no replay or score-gain gate is used.')
 
 MIXED_SCHEMA = (
     'Memory fields: local_id:string, content:string, applicability:string, '
@@ -93,7 +96,7 @@ MIXED_SCHEMA = (
     'observation/action; do not invent observations, move actions to earlier states, or add hidden labels. '
     'Choose decisions that actually evidence this content and its conditions. '
     'Use supports only for those specific conclusions. If insufficient evidence/material, emit an '
-    'external memory with examples:[]; capacity mode emits examples:[]. No self-certified verification. '
+    'external memory with examples:[]; capacity mode emits examples:[]. Source links are checked structurally, not semantically certified. '
     'Question generation does not add source task support. Preserve uncertainty and native environment rules.')
 
 

@@ -12,7 +12,7 @@ from memturn.memory.policies import cold_region, pack_half, select_one
 from memturn.memory.store import BudgetExceeded, StaleSnapshot, Store
 from memturn.memory.validation import Validator
 from memturn.runtime.service import Runtime
-from tests.fixtures.environment import FINISH, PREPARE, ToyEnvironment, ToyPolicy, ToyVerifier
+from tests.fixtures.environment import FINISH, PREPARE, ToyEnvironment, ToyPolicy
 from memturn.tokens import OfflineCounter
 
 
@@ -33,7 +33,7 @@ class CoreTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.config, self.counter = Config(), OfflineCounter()
         self.store = Store(self.root / "state.sqlite", self.config, self.counter)
-        self.validator = Validator(self.store, ToyVerifier())
+        self.validator = Validator(self.store)
         self.runtime = None
 
     def tearDown(self):
@@ -60,7 +60,7 @@ class CoreTests(unittest.TestCase):
     def test_distinct_task_support_not_number_of_records(self):
         raw = self.add("a")
         duplicated = replace(raw, supports=(raw.supports[0], raw.supports[0]))
-        self.assertEqual(self.validator.support_count(duplicated), 1)
+        self.assertEqual(self.validator.source_coverage_count(duplicated), 1)
         self.assertIsNone(select_one((replace(duplicated, consolidated=True),), self.validator,
                                      self.counter, self.config))
 
@@ -77,14 +77,14 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(self.validator.valid_memory(wrong_parent))
         self.assertFalse(self.validator.validate_replacement((first, unrelated), (wrong_parent,)))
 
-    def test_selector_prefers_more_verified_tasks_and_returns_one(self):
+    def test_selector_prefers_more_source_tasks_and_returns_one(self):
         for i in range(3): self.add(f"v{i}")
         for i in range(2): self.add(f"a{i}", "api:v1")
         region, summaries = self.store.memories(), self.summaries()
         self.store.replace_region(region, summaries, "regular")
         selected = select_one(self.store.memories(), self.validator, self.counter, self.config)
         self.assertEqual(selected.applicability, "vault:v1")
-        self.assertEqual(self.validator.support_count(selected), 3)
+        self.assertEqual(self.validator.source_coverage_count(selected), 3)
 
     def test_rewriting_does_not_inflate_support_or_reset_age(self):
         self.add("a"); self.add("b")
@@ -93,7 +93,7 @@ class CoreTests(unittest.TestCase):
         original = self.store.memories()[0]
         self.store.replace_region((original,), self.summaries(), "regular")
         rewritten = self.store.memories()[0]
-        self.assertEqual(self.validator.support_count(rewritten), 2)
+        self.assertEqual(self.validator.source_coverage_count(rewritten), 2)
         self.assertEqual(rewritten.recency_anchor, original.recency_anchor)
 
     def test_budget_failure_rolls_back_memory_write(self):
@@ -133,7 +133,7 @@ class CoreTests(unittest.TestCase):
     def test_capacity_skips_nonfitting_whole_entry_and_dynamic_k(self):
         class V:
             def valid_memory(self, m): return True
-            def support_count(self, m): return len(m.task_ids)
+            def source_coverage_count(self, m): return len(m.task_ids)
         raw = Memory("raw", "x " * 100, "c", (Support("a", 0),))
         large = Memory("large", "x " * 60, "c", (Support("a", 0), Support("b", 0)))
         small1 = Memory("small1", "x " * 15, "c", (Support("a", 0),))
@@ -254,7 +254,7 @@ class CoreTests(unittest.TestCase):
         self.store.job("unfinished", state="READY", selected="not_published")
         self.store.close()
         self.store = Store(self.root / "state.sqlite", self.config, self.counter)
-        self.validator = Validator(self.store, ToyVerifier())
+        self.validator = Validator(self.store)
         runtime = self.make_runtime()
         runtime.drain()
         self.assertEqual(len(self.store.memories()), 1)

@@ -9,7 +9,7 @@ from memturn.memory.store import Store
 from memturn.memory.validation import Validator
 from memturn.runtime.service import Runtime
 from memturn.tokens import OfflineCounter
-from tests.fixtures.environment import ToyEnvironment, ToyPolicy, ToyVerifier
+from tests.fixtures.environment import ToyEnvironment, ToyPolicy
 from tests.fixtures.operators import ToyWriter, ToyConsolidator
 from tests.test_core import episode
 
@@ -40,7 +40,7 @@ class PeriodicCapacityTests(unittest.TestCase):
     def make_runtime(self, writer=None):
         self.events = []
         self.runtime = ScheduledRuntime(self.store, writer or ToyWriter(), ToyConsolidator(self.store),
-            Validator(self.store, ToyVerifier()), audit=self.events.append)
+            Validator(self.store), audit=self.events.append)
         return self.runtime
 
     def test_independent_clock_and_order_below_memory_limit(self):

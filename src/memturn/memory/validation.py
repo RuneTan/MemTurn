@@ -1,32 +1,35 @@
-"""Source truth is delegated; mixed-material binding and fidelity are checked here."""
+"""Lightweight provenance, material binding and source fidelity; no semantic judge."""
 from ..contracts import Support
 from ..learning.materials import covered_text
 
 
 class Validator:
-    def __init__(self, store, verifier):
-        self.store, self.verifier = store, verifier
+    def __init__(self, store):
+        self.store = store
 
-    def _supports(self, memory, episode, ref):
-        try:
-            return bool(episode and ref.task_id == episode.task_id
-                        and isinstance(ref.step, int) and not isinstance(ref.step, bool)
-                        and 0 <= ref.step < len(episode.steps)
-                        and self.verifier.verify_support(memory, episode, ref))
-        except Exception:
-            return False
+    def _source_exists(self, episode, ref):
+        return bool(episode and isinstance(ref.task_id, str) and ref.task_id
+                    and ref.task_id == episode.task_id
+                    and isinstance(ref.step, int) and not isinstance(ref.step, bool)
+                    and 0 <= ref.step < len(episode.steps))
 
-    def support_count(self, memory):
-        supported = set()
-        for ref in memory.supports:
-            episode = self.store.episode(ref.task_id)
-            if self._supports(memory, episode, ref):
-                supported.add(ref.task_id)
-        return len(supported)
+    def _episode(self, ref):
+        if not isinstance(ref.task_id, str) or not ref.task_id:
+            return None
+        return self.store.episode(ref.task_id)
+
+    def source_coverage_count(self, memory):
+        return len({ref.task_id for ref in memory.supports
+                    if self._source_exists(self._episode(ref), ref)})
 
     def valid_memory(self, memory):
-        return bool(memory.content.strip() and memory.applicability.strip() and memory.supports
-                    and all(self._supports(memory, self.store.episode(s.task_id), s) for s in memory.supports))
+        try:
+            return bool(isinstance(memory.content, str) and memory.content.strip()
+                        and isinstance(memory.applicability, str) and memory.applicability.strip()
+                        and memory.supports and all(self._source_exists(self._episode(s), s)
+                                                   for s in memory.supports))
+        except (TypeError, AttributeError):
+            return False
 
     def training_examples(self, memory):
         if self.store.config.training_material == 'decision_only':
@@ -52,18 +55,22 @@ class Validator:
             if compact(taught) in compact(example.prompt):
                 return False
             return bool(example.support_refs) and set(example.support_refs) <= set(memory.supports) and all(
-                self._supports(memory, self.store.episode(s.task_id), s) for s in example.support_refs)
+                self._source_exists(self._episode(s), s) for s in example.support_refs)
         if example.example_type != 'decision' or example.output_kind != 'environment_action':
             return False
-        if example.input_step not in (None, example.step):
+        if (example.input_step is not None and (isinstance(example.input_step, bool)
+                or not isinstance(example.input_step, int) or example.input_step != example.step)):
             return False  # No source-state projection in the current protocol.
         ref = Support(example.task_id, example.step)
         if ref not in memory.supports or example.support_refs != (ref,):
             return False
         episode = self.store.episode(example.task_id)
         try:
-            return bool(self._supports(memory, episode, ref)
-                        and self.verifier.verify_example(example, episode))
+            return bool(self._source_exists(episode, ref)
+                        and (episode.steps[example.step].accepted
+                             or episode.steps[example.step].evidence.get("action_admissible") is True)
+                        and example.prompt == episode.steps[example.step].observation
+                        and example.target == episode.steps[example.step].action)
         except Exception:
             return False
 

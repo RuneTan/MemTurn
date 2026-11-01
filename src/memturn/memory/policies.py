@@ -4,23 +4,23 @@ import random
 from ..contracts import Memory
 
 
-def ranked_by_support(memories, valid_support_count, seed):
+def ranked_by_coverage(memories, valid_source_coverage_count, seed):
     items = sorted(memories, key=lambda m: m.ref)
     random.Random(seed).shuffle(items)
-    return sorted(items, key=lambda m: valid_support_count(m), reverse=True)
+    return sorted(items, key=lambda m: valid_source_coverage_count(m), reverse=True)
 
 
 def select_one(memories, validator, counter, config, seed=None):
     eligible = [m for m in memories if m.consolidated and m.examples
                 and counter.count(m.payload) <= config.entry_token_cap
-                and validator.support_count(m) >= config.min_support_tasks
+                and validator.source_coverage_count(m) >= config.min_support_tasks
                 and validator.trainable(m)]
     seed = config.seed if seed is None else seed
     if config.selection_policy == 'random':
         ranked = sorted(eligible, key=lambda m: m.ref)
         random.Random(seed).shuffle(ranked)
     else:
-        ranked = ranked_by_support(eligible, validator.support_count, seed)
+        ranked = ranked_by_coverage(eligible, validator.source_coverage_count, seed)
     return ranked[0] if ranked else None
 
 
@@ -45,7 +45,7 @@ def pack_half(region, candidates, validator, counter, config, seed=None):
     budget = min(math.floor(sum(counter.count(m.payload) for m in region)
                             * config.return_token_ratio), config.output_token_cap)
     kept, used = [], 0
-    for memory in ranked_by_support(candidates, validator.support_count,
+    for memory in ranked_by_coverage(candidates, validator.source_coverage_count,
                                      config.seed if seed is None else seed):
         if not validator.valid_memory(memory):
             continue

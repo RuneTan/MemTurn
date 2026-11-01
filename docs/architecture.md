@@ -20,15 +20,15 @@ flowchart LR
 
 ## Two maintenance paths
 
-Regular batches default to four completed source tasks. The Consolidator reads a bounded region and its available source evidence, and emits a replacement set. Source verification and atomic replacement precede learning. At most one eligible entry with at least two distinct supporting tasks is selected. Default mixed supervision combines a rule QA with original source decisions; the learner must honor the selected material, exclusions and configured training limits.
+Regular batches default to four completed source tasks. The Consolidator reads a bounded region and its available source evidence, and emits a replacement set. Source verification and atomic replacement precede learning. At most one eligible entry with at least two distinct cited source tasks is selected. Default mixed supervision combines a rule QA with original source decisions; the learner must honor the selected material, exclusions and configured training limits.
 
 A successful prepared artifact allows one transaction to change the published pointer and retire the selected entry version. A failed learning job preserves the committed external summaries. Retirement is not gated on a mastery test.
 
-Cold-memory maintenance selects cold entries on its slower fixed schedule, regardless of bank occupancy. Outputs are ranked by verified support and packed whole within half the processed input tokens; the number retained is determined by the budget. This event never trains.
+Cold-memory maintenance selects cold entries on its slower fixed schedule, regardless of bank occupancy. Outputs are ranked by source coverage and packed whole within half the processed input tokens; the number retained is determined by the budget. This event never trains.
 
 ## Evidence and permissions
 
-The policy reads retrieved memory; it does not directly write the bank. The Writer sees one public episode. The Consolidator may inspect the selected region and accessible sources. The verifier checks source links and domain validity independently. Generated text does not certify itself. Hidden answers and evaluation metadata are not public experience.
+The policy reads retrieved memory; it does not directly write the bank. The Writer sees one public episode. The Consolidator may inspect the selected region and accessible sources. The built-in provenance checker validates source links, not the semantic correctness of summaries. Free-form summaries are allowed; semantic quality is evaluated separately. Hidden answers and evaluation metadata are not public experience.
 
 Training excludes the target, its parents and identified same-source aliases. Read-only evaluation does not update memory access counters or restore pending learning jobs. Audit logs are analysis outputs, not a retrievable experience store.
 

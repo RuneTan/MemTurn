@@ -18,8 +18,7 @@
 | `runtime/service.py` | 前后台协调、发布、退出和清理 |
 | `runtime/arrival.py`、`runtime/recovery.py` | 到达负载、期限、目录锁与任务清单身份 |
 | `runtime/process.py`、`runtime/resources.py` | 有界子进程通信与资源测量 |
-| `tasks/base.py`、`tasks/process.py` | 环境／校验器约定与进程桥接 |
-| `tasks/verification.py`、`tasks/isolated.py`、`tasks/observed.py` | 回放检查、隔离校验和窄范围观察转移判定 |
+| `tasks/base.py`、`tasks/process.py` | 环境约定与进程桥接 |
 | `tasks/scienceworld.py`、`tasks/alfworld.py` | 可选环境包装；不附依赖和环境资产 |
 | `matrix.py` | 对照组配置的纯转换逻辑 |
 
@@ -28,11 +27,11 @@
 - **任务策略：** `act(observation, memories, model_version, history)` 返回环境动作或受限的记忆检索请求。`ChatPolicy` 可使用自行注入的 `ChatClient.complete(messages, model_override)` 实现。
 - **Writer：** `write(episode, batch)` 返回候选记忆或 `None`。提示式实现以公开经历为证据。
 - **Consolidator：** `consolidate(region, mode, batch, output_budget)` 返回候选替换集合。有界工具循环只允许查看指定区域和来源。
-- **校验器：** `verify_support(memory, episode, support)`、`verify_example(example, episode)` 检查具体领域证据。缺少证明即拒绝准入；任务成功不代表每一步都有效。
+- **来源检查器：** 直接使用内置 `Validator(store)`，检查引用存在、范围、材料绑定与原始样本一致性，不需要模型、环境回放或语义判定函数。
 - **学习器：** `train(examples, parent_version)` 返回 `Artifact`；`prepare(artifact)` 确保候选可用；`retain(live_versions)` 只释放无任务使用的版本。支持丰富材料时，还可通过运行系统明确的能力分支接收许可记忆与历史。实际优化、固定秩延续、保存和加载由使用者实现。
 - **环境：** `reset(task)`、`step(action)`、`close()` 交换公开观察与 `Transition`。可选包装不会自动安装依赖。
 
-先构造 `Store(path, config, counter)`、`Validator(store, verifier)`，再构造 `Runtime(store, writer, consolidator, validator, learner=...)`。通过 `run_task(task, environment, policy)` 执行，结束时先关闭运行系统，再关闭数据库。不预选任何后端。`learner=None` 关闭参数学习；只读运行不设置 Writer、Consolidator 和校验器。
+先构造 `Store(path, config, counter)`、`Validator(store)`，再构造 `Runtime(store, writer, consolidator, validator, learner=...)`。通过 `run_task(task, environment, policy)` 执行，结束时先关闭运行系统，再关闭数据库。不预选任何后端。`learner=None` 关闭参数学习；只读运行不设置 Writer、Consolidator 和校验器。
 
 完整方法仍需要实际工作的应用组件。接口本身不执行学习，也不能证明内化。集成责任见[开发说明](development.zh-CN.md)。
 

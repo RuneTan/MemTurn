@@ -25,8 +25,7 @@ def budget_signature(profile):
     runtime = Config(**profile['runtime']).to_dict()
     for key in set().union(*(set(values) for values in ARMS.values())):
         runtime.pop(key, None)
-    fixed = {key:profile.get(key) for key in ('models','arrival','utility','resources','learning_budget','verification_factory',
-                                           'verification_kwargs','operator_kind','operator_guidance',
+    fixed = {key:profile.get(key) for key in ('models','arrival','utility','resources','learning_budget','operator_kind','operator_guidance',
                                            'environment','tokenizer_model','tokenizer_revision')}
     fixed['runtime'] = runtime
     fixed['training'] = {key:value for key,value in profile['training'].items() if key != 'server_adapter_root'}
