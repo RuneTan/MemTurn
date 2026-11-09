@@ -17,4 +17,8 @@ When adding an application backend, validate evidence admission, material exclus
 
 Source installation and tests validate engineering contracts only; they do not establish model quality, training effectiveness or benchmark performance.
 
-`tests/test_material_recovery.py` reproduces the short-word overlap and single-bad-sample failures, checks that valid material survives decoding/validation/count limits, and verifies publication with a context-aware fake learner. It also checks that forged actions and self-answering QA remain invalid. Native histories must stay intact while historical retrieval messages stay out of student inputs.
+`tests/test_material_recovery.py` covers text overlap, per-sample recovery, duplicate references and samples, count limits and publication. Text overlap is audited; forged actions and foreign citations remain invalid. Native histories stay intact while historical retrieval messages stay out of student inputs.
+
+`tests/test_training_and_cold_selection.py` checks delivery of full learner inputs, cold selection beyond the former item-count cutoff, packing within half the actual input, and preservation of the old state on failure. Old learners must adopt the full signature; old configurations must remove `cold_fraction`.
+
+Repeated memory queries reuse cached results without reporting a repetition error, but still consume the finite query allowance. Obsolete model backends, the broken native-worker entry point and the unimplemented WebArena placeholder are not included; applications supply their own backends and worker command.

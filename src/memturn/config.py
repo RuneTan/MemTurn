@@ -34,7 +34,6 @@ class Config:
     retrieval_token_cap: int = 768
     max_extra_searches: int = 2
     capacity_interval_batches: int = 4
-    cold_fraction: float = 0.2
     return_token_ratio: float = 0.5
     max_capacity_regions: int = 2
     max_pending_jobs: int = 2
@@ -61,8 +60,8 @@ class Config:
                 or not isinstance(self.capacity_interval_batches, int)
                 or self.capacity_interval_batches <= 1):
             raise ValueError("capacity_interval_batches must be an integer greater than 1")
-        if not 0 < self.cold_fraction <= 1 or self.return_token_ratio != 0.5:
-            raise ValueError("v0.2 requires a positive cold_fraction and a fixed half return budget")
+        if self.return_token_ratio != 0.5:
+            raise ValueError("v0.2 requires a fixed half return budget")
         if (isinstance(self.max_extra_searches,bool) or not isinstance(self.max_extra_searches,int)
                 or self.max_extra_searches < 0 or self.max_adapter_versions != 3):
             raise ValueError("Invalid search or adapter-version limit")

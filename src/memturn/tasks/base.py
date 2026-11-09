@@ -1,5 +1,5 @@
 from typing import Protocol
-from ..contracts import Episode, Example, Memory, Support, Task, Transition
+from ..contracts import Task, Transition
 
 
 class TaskEnvironment(Protocol):

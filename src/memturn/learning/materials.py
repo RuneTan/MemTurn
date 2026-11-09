@@ -8,7 +8,7 @@ from ..models.protocol import task_messages
 
 def covered_text(memory, refs):
     parts = []
-    for ref in refs:
+    for ref in dict.fromkeys(refs):
         prefix = memory.ref + '#'
         if not ref.startswith(prefix):
             raise ValueError('content reference belongs to another memory version')
@@ -23,9 +23,17 @@ def covered_text(memory, refs):
             parts.append(memory.content[start:end])
         else:
             raise ValueError('unsupported content reference')
-    if not parts or len(set(refs)) != len(refs):
-        raise ValueError('missing or duplicate covered content references')
+    if not parts:
+        raise ValueError('missing covered content references')
     return '\n'.join(parts)
+
+
+def unique_examples(examples):
+    kept = []
+    for example in examples:
+        if example not in kept:
+            kept.append(example)
+    return tuple(kept)
 
 
 def bind_example(example, memory):

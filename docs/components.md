@@ -28,10 +28,14 @@
 - **Writer:** `write(episode, batch)` returns a candidate memory or `None`. The prompted implementation uses public episode evidence.
 - **Consolidator:** `consolidate(region, mode, batch, output_budget)` returns candidate replacement memories. Its bounded tool loop can inspect only allowed region/source evidence. Runtime validates samples individually and enforces the shared sample-count cap; invalid samples do not erase valid neighbors.
 - **Provenance checker:** use the built-in `Validator(store)`. It checks citation existence/scope, material bindings and source-copy fidelity without a model, replay or semantic predicate.
-- **Learner:** `train(examples, parent_version)` returns an `Artifact`; `prepare(artifact)` ensures it can be used; `retain(live_versions)` releases only unused versions. Currently, native histories and permitted memories are passed only when `accepts_memory_context=True`, as `histories` and `memory_context` keyword arguments. The basic two-argument path receives no history: this is an outstanding interface limitation for history-dependent decisions. Applications implement actual optimization, fixed-rank continuation, persistence and loading.
+- **Learner:** `train(examples, parent_version, *, histories, memory_context=())` returns an `Artifact`; `prepare(artifact)` ensures it can be used; `retain(live_versions)` releases only unused versions. Runtime always supplies native histories and permitted external memories through this single interface. Applications implement actual optimization, fixed-rank continuation, persistence and loading.
 - **Environment:** `reset(task)`, `step(action)` and `close()` exchange public observations and `Transition` records. Optional wrappers never install their dependencies automatically.
 
 Construct `Store(path, config, counter)`, a `Validator(store)`, then `Runtime(store, writer, consolidator, validator, learner=...)`. Execute with `run_task(task, environment, policy)` and close runtime before store. No default backend is selected. Passing `learner=None` disables parameter learning; a read-only runtime uses no Writer, Consolidator or validator.
+
+`histories[(task_id, step)]` contains the original steps before each decision, excluding historical retrieval messages. A first-step decision has an empty tuple; a QA-only job has an empty history map. `memory_context` is a filtered tuple and may be empty. Existing learners must accept these keyword arguments: the two-argument fallback and `accepts_memory_context` flag are removed. An outdated learner fails the job without publishing or retiring its selected memory.
+
+For `ProcessEnvironment`, applications supply `worker_command` implementing `configure`, `reset`, `step` and `close` through the JSON process bridge. No native worker script or WebArena placeholder is bundled.
 
 The complete method needs functional application components. An interface alone does not implement learning or prove internalization. See [development responsibilities](development.md).
 

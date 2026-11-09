@@ -154,7 +154,7 @@ class ArchitectureAuditTests(unittest.TestCase):
         tampered = replace(ep,steps=(replace(ep.steps[0],action=chosen.content),*ep.steps[1:]))
         example = replace(chosen.examples[1],step=1,prompt='public later state')
         with patch.object(self.store,'episode',return_value=tampered):
-            histories = self.runtime_for().training_histories(chosen,(example,))
+            histories = self.runtime_for().training_histories((example,))
         self.assertEqual(histories[('a',1)], tampered.steps[:1])
 
     def test_writer_cannot_claim_another_existing_episode(self):
@@ -196,7 +196,9 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.add('a'); self.add('b')
         memory = self.summary()
         self.assertTrue(self.validator.trainable(memory))
-        self.assertFalse(self.validator.trainable(replace(memory,examples=(*memory.examples,memory.examples[0]))))
+        self.assertTrue(self.validator.trainable(replace(memory,examples=(*memory.examples,memory.examples[0]))))
+        other_qa = replace(memory.examples[0], prompt='Which procedure should be used?')
+        self.assertFalse(self.validator.trainable(replace(memory,examples=(*memory.examples,other_qa))))
 
     def test_non_model_consolidator_also_obeys_output_budget(self):
         self.add('a')
@@ -214,7 +216,8 @@ class ArchitectureAuditTests(unittest.TestCase):
         class Broken:
             def consolidate(self,*args): return ()
         class Learner:
-            def train(self,examples,parent): return Artifact('trained','fixture','test',parent,{})
+            def train(self, examples, parent, *, histories, memory_context=()):
+                return Artifact('trained','fixture','test',parent,{})
             def prepare(self,*args): pass
             def retain(self,*args): pass
         self.runtime_for(consolidator=Broken(),learner=Learner()).regular_maintenance()
@@ -227,7 +230,9 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.store.replace_region(self.store.memories(),(memory,),'regular')
         class Learner:
             calls=0
-            def train(self,*args): self.calls+=1; raise AssertionError('must wait for old task')
+            def train(self, examples, parent, *, histories, memory_context=()):
+                self.calls+=1
+                raise AssertionError('must wait for old task')
             def retain(self,*args): pass
         learner = Learner()
         runtime = self.runtime_for(learner=learner)

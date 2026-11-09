@@ -1,7 +1,6 @@
 """Deterministic eligibility and seeded ranking; no learned scheduler."""
 import math
 import random
-from ..contracts import Memory
 
 
 def ranked_by_coverage(memories, valid_source_coverage_count, seed):
@@ -29,11 +28,8 @@ def cold_region(memories, batch, counter, config, excluded=()):
     cold = [m for m in memories if m.ref not in blocked and batch - m.recency_anchor >= 1]
     cold.sort(key=lambda m: (m.recency_anchor, m.id))
     selected, tokens = [], 0
-    limit = max(1, math.ceil(len(cold) * config.cold_fraction))
-    # Oversized cold entries must not permanently starve later usable regions.
-    for index, memory in enumerate(cold):
-        if index >= limit and selected:
-            break
+    # Scan in cold order; skip non-fitting entries and keep filling the input budget.
+    for memory in cold:
         size = counter.count(memory.payload)
         if tokens + size <= config.region_token_cap:
             selected.append(memory)

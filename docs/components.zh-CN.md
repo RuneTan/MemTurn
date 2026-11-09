@@ -28,10 +28,14 @@
 - **Writer：** `write(episode, batch)` 返回候选记忆或 `None`。提示式实现以公开经历为证据。
 - **Consolidator：** `consolidate(region, mode, batch, output_budget)` 返回候选替换集合。有界工具循环只允许查看指定区域和来源。运行系统逐条检查样本并执行整次提案的数量上限，坏样本不会连带清空好样本。
 - **来源检查器：** 直接使用内置 `Validator(store)`，检查引用存在、范围、材料绑定与原始样本一致性，不需要模型、环境回放或语义判定函数。
-- **学习器：** `train(examples, parent_version)` 返回 `Artifact`；`prepare(artifact)` 确保候选可用；`retain(live_versions)` 只释放无任务使用的版本。目前只有 `accepts_memory_context=True` 时才通过 `histories`、`memory_context` 关键字参数传递原生历史和许可记忆。基础双参数路径收不到历史，这是依赖历史的决策训练尚待修复的接口限制。实际优化、固定秩延续、保存和加载由使用者实现。
+- **学习器：** `train(examples, parent_version, *, histories, memory_context=())` 返回 `Artifact`；`prepare(artifact)` 确保候选可用；`retain(live_versions)` 只释放无任务使用的版本。运行系统始终通过这一完整接口传入原生历史与许可外部记忆。实际优化、固定秩延续、保存和加载由使用者实现。
 - **环境：** `reset(task)`、`step(action)`、`close()` 交换公开观察与 `Transition`。可选包装不会自动安装依赖。
 
 先构造 `Store(path, config, counter)`、`Validator(store)`，再构造 `Runtime(store, writer, consolidator, validator, learner=...)`。通过 `run_task(task, environment, policy)` 执行，结束时先关闭运行系统，再关闭数据库。不预选任何后端。`learner=None` 关闭参数学习；只读运行不设置 Writer、Consolidator 和校验器。
+
+`histories[(task_id, step)]` 保存每条决策之前的原始步骤，不含历史检索消息。首步决策对应空元组，纯问答作业对应空历史字典。`memory_context` 是筛选后的记忆元组，可以为空。旧学习器须接收这两个关键字参数；双参数回退分支与 `accepts_memory_context` 开关已删除。接口未更新时作业失败，不发布模型，也不退出所选记忆。
+
+使用 `ProcessEnvironment` 时，应用自行提供 `worker_command`，通过 JSON 进程桥接实现 `configure`、`reset`、`step`、`close`。仓库不附原生环境 worker 脚本或 WebArena 占位实现。
 
 完整方法仍需要实际工作的应用组件。接口本身不执行学习，也不能证明内化。集成责任见[开发说明](development.zh-CN.md)。
 

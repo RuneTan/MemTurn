@@ -1,6 +1,6 @@
 """Lightweight provenance, material binding and source fidelity; no semantic judge."""
 from ..contracts import Support
-from ..learning.materials import covered_text
+from ..learning.materials import covered_text, unique_examples
 
 
 class Validator:
@@ -32,11 +32,12 @@ class Validator:
             return False
 
     def training_examples(self, memory):
+        examples = unique_examples(memory.examples)
         if self.store.config.training_material == 'decision_only':
-            return tuple(e for e in memory.examples if e.example_type == 'decision')
+            return tuple(e for e in examples if e.example_type == 'decision')
         if self.store.config.training_material == 'qa_only':
-            return tuple(e for e in memory.examples if e.example_type == 'rule_qa')
-        return memory.examples
+            return tuple(e for e in examples if e.example_type == 'rule_qa')
+        return examples
 
     def valid_example(self, example, memory):
         try:
@@ -56,10 +57,6 @@ class Validator:
                 return False
             if example.task_id or example.step != -1 or example.input_step is not None:
                 return False
-            # Structural leakage check; semantic paraphrase leakage still needs domain review.
-            compact = lambda s: ' '.join(s.casefold().split())
-            if compact(taught) in compact(example.prompt):
-                return False
             return bool(example.support_refs) and set(example.support_refs) <= set(memory.supports) and all(
                 self._source_exists(self._episode(s), s) for s in example.support_refs)
         if example.example_type != 'decision' or example.output_kind != 'environment_action':
@@ -68,7 +65,8 @@ class Validator:
                 or not isinstance(example.input_step, int) or example.input_step != example.step)):
             return False  # No source-state projection in the current protocol.
         ref = Support(example.task_id, example.step)
-        if ref not in memory.supports or example.support_refs != (ref,):
+        if (ref not in memory.supports or not example.support_refs
+                or any(s != ref for s in example.support_refs)):
             return False
         episode = self.store.episode(example.task_id)
         try:

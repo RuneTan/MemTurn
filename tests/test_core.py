@@ -159,6 +159,23 @@ class CoreTests(unittest.TestCase):
         self.store.append(replace(chosen, id="same_source_alias"))
         self.assertEqual(self.make_runtime().training_memories(chosen), ())
 
+    def test_repeated_query_returns_cache_without_error_and_still_spends_budget(self):
+        self.add('a')
+        class Policy:
+            def __init__(self):
+                self.actions = iter(({'kind':'memory_search','query':'vault'},
+                                     {'kind':'memory_search','query':'vault'},
+                                     {'kind':'memory_search','query':'vault'},'inspect_lock','open'))
+            def act(self,*args): return next(self.actions)
+        runtime = self.make_runtime()
+        result = runtime.run_task(Task('repeated','vault','v1',max_steps=2),ToyEnvironment(),Policy())
+        first, cached, exhausted = result.retrievals[1:]
+        self.assertEqual(cached.memories, first.memories)
+        self.assertTrue(cached.memories)
+        self.assertIsNone(cached.error)
+        self.assertEqual(cached.remaining, 0)
+        self.assertEqual(exhausted.error, 'search_budget_exhausted')
+
     def test_publication_only_removes_selected_version(self):
         raw = self.add("a")
         sibling = replace(raw, id="sibling")
@@ -171,7 +188,8 @@ class CoreTests(unittest.TestCase):
 
     def test_failed_training_retains_consolidation_and_all_memories(self):
         class Failing:
-            def train(self, *args): raise RuntimeError("injected training failure")
+            def train(self, examples, parent, *, histories, memory_context=()):
+                raise RuntimeError("injected training failure")
             def retain(self, versions): pass
         self.add("a"); self.add("b")
         self.add("c", "api:v1"); self.add("d", "api:v1")
@@ -183,7 +201,7 @@ class CoreTests(unittest.TestCase):
     def test_foreground_does_not_wait_for_training_loop(self):
         entered, release = threading.Event(), threading.Event()
         class Slow:
-            def train(self, examples, parent):
+            def train(self, examples, parent, *, histories, memory_context=()):
                 entered.set()
                 if not release.wait(3): raise RuntimeError("test release timed out")
                 raise RuntimeError("end fixture without publication")

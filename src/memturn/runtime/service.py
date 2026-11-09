@@ -6,6 +6,7 @@ import time
 import uuid
 
 from ..contracts import Artifact, Episode, ExposedMemory, RetrievalEvent, RetrievalResult, Step, dumps
+from ..learning.materials import unique_examples
 from ..memory.policies import cold_region, pack_half, select_one
 from ..memory.retrieval import Retriever
 from ..memory.store import BudgetExceeded, StaleSnapshot
@@ -159,8 +160,8 @@ class Runtime:
                         else:
                             searches += 1
                             key = (scope, query.strip().casefold())
-                            error = "duplicate_query" if key in previous_queries else None
-                            if error:
+                            error = None
+                            if key in previous_queries:
                                 memories = previous_queries[key]
                             else:
                                 memories = self.retriever.search(view.memories, query, applicability=scope)
@@ -322,11 +323,18 @@ class Runtime:
         kept, remaining = [], self.config.max_examples_per_job
         for memory in outputs:
             valid = tuple(e for e in memory.examples if self.validator.valid_example(e, memory))
-            examples = valid[:remaining]
+            distinct = unique_examples(valid)
+            examples = distinct[:remaining]
             if len(examples) != len(memory.examples):
                 self.event('training_material_filtered', memory_ref=memory.ref,
                            invalid=len(memory.examples) - len(valid),
-                           over_budget=len(valid) - len(examples))
+                           duplicates=len(valid) - len(distinct),
+                           over_budget=len(distinct) - len(examples))
+            compact = lambda text: ' '.join(text.casefold().split())
+            overlap = sum(e.example_type == 'rule_qa' and compact(e.target) in compact(e.prompt)
+                          for e in examples)
+            if overlap:
+                self.event('qa_text_overlap', memory_ref=memory.ref, count=overlap)
             kept.append(replace(memory, examples=examples))
             remaining -= len(examples)
         # Keep partial material; candidate selection checks the required mix later.
@@ -391,7 +399,7 @@ class Runtime:
                                      excluded_refs=(selected.ref, *selected.parents),
                                      excluded_tasks=selected.task_ids)
 
-    def training_histories(self, selected, examples):
+    def training_histories(self, examples):
         """Copy native history only; external memory is filtered in training_memories."""
         histories = {}
         for example in examples:
@@ -417,26 +425,23 @@ class Runtime:
             self.store.job(job_id, mode="regular", state="DATA_VALIDATED", selected=selected.ref,
                            support_tasks=self.validator.source_coverage_count(selected))
             examples = self.validator.training_examples(selected)
-            histories = self.training_histories(selected, examples)
+            histories = self.training_histories(examples)
             if self.learning_budget:
                 reserved_tokens = self.learner.config.max_training_tokens
                 reserved_updates = len(examples) * self.learner.config.epochs
                 self.store.reserve_computes([('sft_tokens', reserved_tokens, self.learning_budget['tokens']),
                                              ('sft_updates', reserved_updates, self.learning_budget['updates'])])
-            if getattr(self.learner, "accepts_memory_context", False):
-                allowed = self.training_memories(selected)
-                # Fresh static inputs: do not inherit historical retrieval bodies or queries.
-                self.event("student_context", excluded=selected.ref, memory_refs=[m.ref for m in allowed],
-                           example_types=[e.example_type for e in examples])
-                payload_bytes = len(dumps({'examples':[asdict(e) for e in examples],
-                    'memories':[m.to_dict() for m in allowed],
-                    'histories':[[asdict(s) for s in history] for history in histories.values()]}).encode('utf-8'))
-                token_limit = getattr(getattr(self.learner, 'config', None), 'max_training_tokens', 16384)
-                with self.store.reserve_work(3 * payload_bytes + 16 * token_limit):
-                    artifact = self.learner.train(examples, self.store.model_version,
-                                                  memory_context=allowed, histories=histories)
-            else:
-                artifact = self.learner.train(examples, self.store.model_version)
+            allowed = self.training_memories(selected)
+            # Fresh static inputs: do not inherit historical retrieval bodies or queries.
+            self.event("student_context", excluded=selected.ref, memory_refs=[m.ref for m in allowed],
+                       example_types=[e.example_type for e in examples])
+            payload_bytes = len(dumps({'examples':[asdict(e) for e in examples],
+                'memories':[m.to_dict() for m in allowed],
+                'histories':[[asdict(s) for s in history] for history in histories.values()]}).encode('utf-8'))
+            token_limit = getattr(getattr(self.learner, 'config', None), 'max_training_tokens', 16384)
+            with self.store.reserve_work(3 * payload_bytes + 16 * token_limit):
+                artifact = self.learner.train(examples, self.store.model_version,
+                                              histories=histories, memory_context=allowed)
             if self.learning_budget:
                 self.store.settle_compute('sft_tokens', reserved_tokens, artifact.metrics['processed_training_tokens'])
                 self.store.settle_compute('sft_updates', reserved_updates, artifact.metrics['steps'])

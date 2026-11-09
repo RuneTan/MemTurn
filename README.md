@@ -17,7 +17,7 @@ This repository contains the core implementation, component contracts and regres
 5. Exclude that memory and its identified source aliases from the student's external-memory input; preserve native observations and actions.
 6. Prepare the new model version, then atomically publish its pointer and retire the selected memory version.
 
-Periodic cold-memory maintenance is separate: summarize a cold region and retain whole outputs within half its input token budget, without starting training. Publication is a successful engineering transition, not proof that the model mastered the experience.
+Periodic cold-memory maintenance is separate: fill an input region in coldness order within its token cap, then retain whole summaries within half the actual input tokens, without starting training. Region selection has no item-count fraction. Publication is a successful engineering transition, not proof that the model mastered the experience.
 
 ## Explore the framework
 

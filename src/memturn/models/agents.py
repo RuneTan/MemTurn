@@ -57,6 +57,7 @@ def _decode_example(original, value, memory, source_lookup):
             normalized.append(ref)
         else:
             raise ValueError('foreign covered-content reference')
+    normalized = list(dict.fromkeys(normalized))
     if kind == 'rule_qa':
         refs = tuple(normalized)
         target = item.get('target', covered_text(memory, refs))

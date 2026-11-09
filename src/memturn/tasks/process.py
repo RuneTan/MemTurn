@@ -43,7 +43,7 @@ class ProcessEnvironment:
     def step(self, action):
         return Transition(**self._request('step', action=action))
 
-    def close(self, force=False):
+    def close(self):
         if self.rpc:
             self.rpc.close()
             self.rpc, self.process = None, None

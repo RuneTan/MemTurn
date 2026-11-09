@@ -96,7 +96,10 @@ class MaterialRecoveryTests(unittest.TestCase):
     def test_shared_sample_cap_keeps_prefix_and_external_summaries(self):
         self.store.config = replace(self.store.config, max_examples_per_job=2)
         good = self.decode()
-        extra = replace(good, examples=(*good.examples, good.examples[1]))
+        ep = self.store.episode('b')
+        extra_decision = replace(good.examples[1], task_id='b', prompt=ep.steps[0].observation,
+                                 target=ep.steps[0].action, support_refs=(Support('b',0),))
+        extra = replace(good, examples=(*good.examples, extra_decision))
         other = self.decode(dict(self.value, content='Another rule'))
         other = replace(other, id='other', examples=())
         other = replace(other, examples=(rule_question(other), bind_example(good.examples[1], other)))
@@ -109,7 +112,7 @@ class MaterialRecoveryTests(unittest.TestCase):
 
     def test_chat_consolidator_uses_same_runtime_sample_cap(self):
         self.store.config = replace(self.store.config, max_examples_per_job=2)
-        value = dict(self.value, examples=[*self.value['examples'], self.value['examples'][1]])
+        value = dict(self.value, examples=[*self.value['examples'], {'task_id':'b','step':0}])
         replies = iter(({'op':'emit','memory':value}, {'op':'finish'}))
         class Client:
             def complete(self, messages):
@@ -131,23 +134,65 @@ class MaterialRecoveryTests(unittest.TestCase):
         self.runtime = Runtime(self.store, None, None, None)
         sample = bind_example(raw.examples[0], selected)
         self.assertIn('phase', sample.prompt)
-        self.assertEqual(self.runtime.training_histories(selected, (sample,)), {('a',0): ()})
+        self.assertEqual(self.runtime.training_histories((sample,)), {('a',0): ()})
         later = replace(sample, step=1, prompt=ep.steps[1].observation, target=ep.steps[1].action)
-        histories = self.runtime.training_histories(selected, (later,))
+        histories = self.runtime.training_histories((later,))
         self.assertEqual(histories[('a',1)], ep.steps[:1])
         self.assertNotIn('EXTERNAL MEMORY BODY', repr(histories))
         self.assertEqual(self.runtime.training_memories(selected), ())
 
-    def test_qa_question_still_cannot_quote_its_own_answer(self):
+    def test_qa_text_overlap_is_audited_instead_of_rejected(self):
         good = self.decode()
         qa = replace(good.examples[0], prompt='Explain ' + good.content)
-        self.assertFalse(self.validator.valid_example(qa, good))
+        self.assertTrue(self.validator.valid_example(qa, good))
+        recovered, = self.propose((replace(good, examples=(qa,good.examples[1])),))
+        self.assertTrue(self.validator.trainable(recovered))
+        self.assertEqual(self.events[0]['event'], 'qa_text_overlap')
+        self.assertEqual(self.events[0]['count'], 1)
 
     def test_missing_history_source_still_fails(self):
         good = self.decode()
         self.runtime = Runtime(self.store, None, None, None)
         with self.assertRaisesRegex(ValueError, 'source is no longer available'):
-            self.runtime.training_histories(good, (replace(good.examples[1], task_id='missing'),))
+            self.runtime.training_histories((replace(good.examples[1], task_id='missing'),))
+
+    def test_qa_answer_inside_another_word_does_not_block_training(self):
+        value = dict(self.value, content='open', examples=[
+            {'example_type':'rule_qa','question':'How do I reopen the door?'},
+            self.value['examples'][1]])
+        recovered, = self.propose((self.decode(value),))
+        self.assertTrue(self.validator.trainable(recovered))
+        self.assertEqual(self.events[0]['event'], 'qa_text_overlap')
+
+    def test_duplicate_references_do_not_discard_a_good_sample(self):
+        qa = dict(self.value['examples'][0], covered_content_refs=['content','S#content','content'])
+        memory = self.decode(dict(self.value, examples=[qa,self.value['examples'][1]]))
+        self.assertEqual(len(memory.examples), 2)
+        self.assertEqual(memory.examples[0].covered_content_refs, (memory.ref+'#content',))
+        self.assertTrue(self.validator.trainable(memory))
+        decision = replace(memory.examples[1], support_refs=(Support('a',0), Support('a',0)))
+        self.assertTrue(self.validator.valid_example(decision, memory))
+        self.assertFalse(self.validator.valid_example(replace(decision,
+            support_refs=(Support('a',0), Support('b',0))), memory))
+        # Persisted repeated refs are also harmless; foreign refs remain invalid.
+        duplicated = replace(memory.examples[0], covered_content_refs=(memory.ref+'#content',)*2)
+        self.assertTrue(self.validator.valid_example(duplicated, memory))
+        self.assertFalse(self.validator.valid_example(replace(duplicated,
+            covered_content_refs=(*duplicated.covered_content_refs,'foreign@1#content')), memory))
+
+    def test_identical_samples_do_not_consume_budget_twice(self):
+        self.store.config = replace(self.store.config, max_examples_per_job=4)
+        good = self.decode()
+        repeated = replace(good, examples=good.examples*2)
+        other = replace(good, id='other', content='Another rule', examples=())
+        other = replace(other, examples=(rule_question(other),bind_example(good.examples[1],other)))
+        first, second = self.propose((repeated, other))
+        self.assertEqual(first.examples, good.examples)
+        self.assertEqual(second.examples, other.examples)
+        self.assertEqual(self.validator.training_examples(repeated), good.examples)
+        self.assertTrue(self.validator.trainable(repeated))
+        self.assertEqual(self.events[0]['duplicates'], 2)
+        self.assertEqual(self.events[0]['over_budget'], 0)
 
     def test_recovered_material_reaches_context_learner_and_can_publish(self):
         value = dict(self.value, examples=[self.value['examples'][0], {'example_type':'unsupported'},
@@ -159,7 +204,6 @@ class MaterialRecoveryTests(unittest.TestCase):
         self.store.append(replace(recovered, id='alias', content='phase', examples=()))
         calls = []
         class Learner:
-            accepts_memory_context = True
             def train(self, examples, parent_version, *, memory_context, histories):
                 calls.append((examples, memory_context, histories))
                 return Artifact('trained', 'fixture', 'test-only', parent_version, {})

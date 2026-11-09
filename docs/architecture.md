@@ -26,13 +26,15 @@ A successful prepared artifact allows one transaction to change the published po
 
 Consolidation samples are decoded and checked individually. Invalid samples are discarded without clearing valid neighbors; valid samples are retained in output order up to the shared count cap. A summary with an incomplete material mix remains external and is not eligible for mixed training. No extra retry or material-generation queue is introduced.
 
-Cold-memory maintenance selects cold entries on its slower fixed schedule, regardless of bank occupancy. Outputs are ranked by source coverage and packed whole within half the processed input tokens; the number retained is determined by the budget. This event never trains.
+Cold-memory maintenance runs on its slower fixed schedule, regardless of bank occupancy. Entries unaccessed for at least one batch are scanned from coldest to warmest and packed whole within `region_token_cap` (default 4096). Non-fitting entries are skipped while later entries are still considered; there is no item-count fraction. Outputs are ranked by source coverage and packed whole within `min(floor(actual_input_tokens / 2), output_token_cap)`. The half budget is calculated from the actual selected region, not the configured input ceiling. This event never trains; an unusable replacement preserves the original region.
 
 ## Evidence and permissions
 
 The policy reads retrieved memory; it does not directly write the bank. The Writer sees one public episode. The Consolidator may inspect the selected region and accessible sources. The built-in provenance checker validates source links, not the semantic correctness of summaries. Free-form summaries are allowed; semantic quality is evaluated separately. Hidden answers and evaluation metadata are not public experience.
 
 Training excludes the target, its parents, same-source entries and recognized text copies from external-memory retrieval. Histories are rebuilt from original observation/action steps, without replaying historical retrieval messages. Text overlap with a memory does not invalidate native observations or actions. This controls the external-memory channel, not all possible answer clues. Read-only evaluation does not update memory access counters or restore pending learning jobs. Audit logs are analysis outputs, not a retrievable experience store.
+
+Every training call receives `histories` and `memory_context` through the same learner contract. Empty context is represented by empty data, never by switching to a shorter call that drops history.
 
 ## Budgets and recovery
 
@@ -41,6 +43,8 @@ Training excludes the target, its parents, same-source entries and recognized te
 Applications must still enforce deployment-wide RAM/GPU/storage limits and cancellation in their backends. The arrival driver is not a fixed-horizon evaluator; whole-run cutoff, parent-chain settlement, checkpoint branching and scientific evaluation remain separate integration work. No infinite deduplication or exactly-once external action guarantee is claimed.
 
 See [component contracts](components.md) and [development](development.md).
+
+The obsolete `cold_fraction` setting is removed; delete it from old configurations. The input token cap now directly bounds region selection.
 
 ## Maintenance schedule
 
