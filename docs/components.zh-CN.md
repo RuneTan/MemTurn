@@ -2,41 +2,57 @@
 
 [English](components.md) | [简体中文](components.zh-CN.md)
 
-| 模块 | 职责与边界 |
+沿着一次任务到一次模型更新的过程，可以把 MemTurn 分成下面几部分。表中路径均位于 `src/memturn/`。
+
+| 组件 | 接收什么，完成什么 | 实现入口 |
+| --- | --- | --- |
+| 任务策略与环境 | 策略根据观察、记忆和历史选择动作；环境执行动作并返回反馈 | `models/protocol.py`、`tasks/base.py` |
+| Writer（经验记录器） | 将一次任务经历写成带来源的记忆 | `models/agents.py` |
+| 记忆库与检索 | 保存经历、记忆和版本，在任务视图内检索相关条目 | `memory/store.py`、`memory/retrieval.py` |
+| Consolidator（经验整理器） | 将一组记忆及其来源整理为摘要和训练材料 | `models/agents.py` |
+| 来源检查与选择 | 核对引用和材料，选择学习目标及废退区域 | `memory/validation.py`、`memory/policies.py` |
+| 学习器 | 用训练材料更新模型，准备和保留所需版本 | `learning/base.py`、`learning/materials.py` |
+| 运行系统 | 串起任务执行、后台维护和版本发布 | `runtime/service.py` |
+
+## 任务执行与经验整理
+
+任务策略的 `act(observation, memories, model_version, history)` 返回环境动作或记忆检索请求。环境通过 `reset(task)`、`step(action)` 和 `close()` 提供任务交互；每步反馈用 `Transition` 表示。
+
+Writer 的 `write(episode, batch)` 接收一次经历，返回一条候选记忆；没有值得记录的内容时返回 `None`。Consolidator 的 `consolidate(region, mode, batch, output_budget)` 接收一个区域，返回摘要集合及各自的训练材料。两者的提示式实现位于 `models/agents.py`，通过注入 `ChatClient.complete(messages, model_override)` 接入所选模型服务。
+
+`Validator(store)` 使用库中保存的来源检查记忆和材料。[来源与训练材料](provenance.zh-CN.md)介绍引用怎样产生，以及这些检查怎样工作。
+
+## 模型学习与发布
+
+学习器采用统一接口：
+
+```text
+train(examples, parent_version, *, histories, memory_context=()) -> Artifact
+prepare(artifact) -> None
+retain(versions) -> None
+```
+
+- `examples`：所选摘要的规则问答和决策示范。
+- `parent_version`：本次微调从哪个模型版本继续。
+- `histories[(task_id, step)]`：对应决策之前的原始任务步骤。首步对应空元组，纯问答训练对应空字典。
+- `memory_context`：本次训练可读取的外部记忆元组，可以为空。
+
+`train` 返回模型产物 `Artifact`，`prepare` 将其准备为可用版本，随后运行系统完成发布。`retain` 根据仍在使用的版本集合清理旧产物。具体模型加载、固定秩 LoRA 训练和保存逻辑放在应用提供的学习器中。
+
+## 把组件接起来
+
+先构造 `Store(path, config, counter)` 和 `Validator(store)`，再将 Writer、Consolidator 和学习器传给 `Runtime(store, writer, consolidator, validator, learner=...)`。用 `run_task(task, environment, policy)` 执行任务，结束时先关闭 Runtime，再关闭 Store。
+
+项目中的配套工具包括：
+
+| 用途 | 模块 |
 | --- | --- |
-| `contracts.py` | 不可变的任务、经历、证据、记忆、快照与模型产物记录 |
-| `config.py`、`tokens.py` | 配置检查与可注入计数器；词法计数不等于模型 token 数 |
-| `memory/store.py` | SQLite 状态、来源、版本、事务、队列与恢复记录 |
-| `memory/retrieval.py` | 在任务记忆视图中进行有界检索 |
-| `memory/validation.py` | 来源、替换集合和训练材料准入 |
-| `memory/policies.py` | 单条选择、冷区选择和半预算保留 |
-| `models/agents.py` | 不绑定服务的提示式 Writer 与区域 Consolidator |
-| `models/protocol.py` | 聊天客户端约定、动作格式、策略和期限控制；不含传输实现 |
-| `models/budget.py` | 为注入客户端预留 token 额度并核对实际消耗 |
-| `learning/materials.py`、`learning/base.py` | 有来源的问答／决策材料与学习器生命周期约定 |
-| `learning/archive.py` | 带校验和的适配器归档、恢复工具 |
-| `runtime/service.py` | 前后台协调、发布、退出和清理 |
-| `runtime/arrival.py`、`runtime/recovery.py` | 到达负载、期限、目录锁与任务清单身份 |
-| `runtime/process.py`、`runtime/resources.py` | 有界子进程通信与资源测量 |
-| `tasks/base.py`、`tasks/process.py` | 环境约定与进程桥接 |
-| `tasks/scienceworld.py`、`tasks/alfworld.py` | 可选环境包装；不附依赖和环境资产 |
-| `matrix.py` | 对照组配置的纯转换逻辑 |
+| 数据类型、参数与 token 计数 | `contracts.py`、`config.py`、`tokens.py` |
+| 模型调用预算 | `models/budget.py` |
+| 适配器归档与恢复 | `learning/archive.py` |
+| 任务到达、期限与恢复记录 | `runtime/arrival.py`、`runtime/recovery.py` |
+| 子进程通信与资源测量 | `runtime/process.py`、`runtime/resources.py` |
+| 环境接入与进程桥接 | `tasks/scienceworld.py`、`tasks/alfworld.py`、`tasks/process.py` |
+| 生成对照组配置 | `matrix.py` |
 
-## 使用者需要提供什么
-
-- **任务策略：** `act(observation, memories, model_version, history)` 返回环境动作或受限的记忆检索请求。`ChatPolicy` 可使用自行注入的 `ChatClient.complete(messages, model_override)` 实现。
-- **Writer：** `write(episode, batch)` 返回候选记忆或 `None`。提示式实现以公开经历为证据。
-- **Consolidator：** `consolidate(region, mode, batch, output_budget)` 返回候选替换集合。有界工具循环只允许查看指定区域和来源。运行系统逐条检查样本并执行整次提案的数量上限，坏样本不会连带清空好样本。
-- **来源检查器：** 直接使用内置 `Validator(store)`，检查引用存在、范围、材料绑定与原始样本一致性，不需要模型、环境回放或语义判定函数。
-- **学习器：** `train(examples, parent_version, *, histories, memory_context=())` 返回 `Artifact`；`prepare(artifact)` 确保候选可用；`retain(live_versions)` 只释放无任务使用的版本。运行系统始终通过这一完整接口传入原生历史与许可外部记忆。实际优化、固定秩延续、保存和加载由使用者实现。
-- **环境：** `reset(task)`、`step(action)`、`close()` 交换公开观察与 `Transition`。可选包装不会自动安装依赖。
-
-先构造 `Store(path, config, counter)`、`Validator(store)`，再构造 `Runtime(store, writer, consolidator, validator, learner=...)`。通过 `run_task(task, environment, policy)` 执行，结束时先关闭运行系统，再关闭数据库。不预选任何后端。`learner=None` 关闭参数学习；只读运行不设置 Writer、Consolidator 和校验器。
-
-`histories[(task_id, step)]` 保存每条决策之前的原始步骤，不含历史检索消息。首步决策对应空元组，纯问答作业对应空历史字典。`memory_context` 是筛选后的记忆元组，可以为空。旧学习器须接收这两个关键字参数；双参数回退分支与 `accepts_memory_context` 开关已删除。接口未更新时作业失败，不发布模型，也不退出所选记忆。
-
-使用 `ProcessEnvironment` 时，应用自行提供 `worker_command`，通过 JSON 进程桥接实现 `configure`、`reset`、`step`、`close`。仓库不附原生环境 worker 脚本或 WebArena 占位实现。
-
-完整方法仍需要实际工作的应用组件。接口本身不执行学习，也不能证明内化。集成责任见[开发说明](development.zh-CN.md)。
-
-维护频率超参数为 `batch_size` 和 `capacity_interval_batches > 1`，详见[周期与恢复语义](architecture.zh-CN.md)。
+安装步骤、接入要求和常用参数见[开发说明](development.zh-CN.md)。

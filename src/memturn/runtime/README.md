@@ -2,6 +2,6 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Task scheduling, background maintenance, transactional publication, recovery and process bounds.
+`service.py` coordinates tasks, background consolidation, training, and publication. `arrival.py` and `recovery.py` handle task arrivals and recovery records; `process.py` and `resources.py` provide process communication and resource measurement.
 
-See [components](../../../docs/components.md).
+[Components and interfaces](../../../docs/components.md) · [Development](../../../docs/development.md)

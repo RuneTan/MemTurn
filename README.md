@@ -2,41 +2,31 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**Bounded memory and selective internalization for continual agents.**
+**Organize and learn from an agent's experience within fixed storage and compute budgets.**
 
-MemTurn is a model-independent engineering framework for an agent that learns from a changing task stream. It keeps external experience within explicit budgets, consolidates related experiences, prepares grounded supervision, and coordinates parameter publication with memory retirement.
+An agent accumulates experience as it works through a stream of tasks. Which experiences should stay in memory, which deserve training compute, and how should the system make room for new ones? MemTurn connects external memory management with ongoing model updates to study these questions.
 
-This repository contains the core implementation, component contracts and regression tests. It does not ship a model, an API client, model-download scripts, experiment datasets or pilot results. An application supplies its own policy, experience operators, learner. The framework is not a ready-to-run benchmark service and does not establish a learning advantage.
+It manages experience at two cadences:
 
-## How it works
+- **USE: organize recent experience and choose one summary to learn from.** A Consolidator turns new records and recently retrieved memories into summaries, rule questions and answers, and decision demonstrations. The system then selects a summary from the memory bank with broad source coverage and complete training material, fine-tunes the task model, and removes that external memory when the new version is published.
+- **DISUSE: periodically compress less-used experience.** At a slower cadence, the same Consolidator reorganizes memories selected in coldness order. The system retains summaries within half the input's token count, making room for future experience.
 
-1. Pin the current model version and memory view for a task; retrieve before acting.
-2. Write experience supported by that task's observations, actions and feedback.
-3. Consolidate a bounded region across tasks into replacement memories and training material.
-4. Select at most one eligible memory, prioritizing source coverage across distinct tasks.
-5. Exclude that memory and its identified source aliases from the student's external-memory input; preserve native observations and actions.
-6. Prepare the new model version, then atomically publish its pointer and retire the selected memory version.
+Both paths run on fixed schedules. The task model uses a frozen base with a fixed-rank LoRA adapter; the Writer and Consolidator remain fixed throughout the task stream. The research question is whether this allocation of memory and learning budgets improves cumulative task utility and keeps earlier experience useful over time.
 
-Periodic cold-memory maintenance is separate: fill an input region in coldness order within its token cap, then retain whole summaries within half the actual input tokens, without starting training. Region selection has no item-count fraction. Publication is a successful engineering transition, not proof that the model mastered the experience.
+## Follow an experience
 
-## Explore the framework
+**Perform tasks with memory retrieval → record experience → produce summaries and training material → select a summary for fine-tuning → publish the model and remove the corresponding memory.**
 
-| Entry | Contents |
+By default, selection favors summaries citing more distinct source tasks. For example, among two eligible summaries drawn from three and two tasks respectively, the former takes priority. Each USE cycle trains on at most one summary; the others remain available for retrieval or later learning.
+
+## Start here
+
+The repository provides task scheduling, memory management, experience consolidation, training interfaces, and model version management. Connect a task environment and model backend to build a continual-learning experiment.
+
+| What would you like to understand? | Read |
 | --- | --- |
-| [Architecture](docs/architecture.md) | Data flow, permissions, lifecycle and resource limits |
-| [Components and contracts](docs/components.md) | Concrete modules, inputs, outputs and extension points |
-| [Development](docs/development.md) | Installation, offline tests and integration responsibilities |
-| [Source map](src/README.md) | Implementation directories |
-| [Literature](docs/literature.md) | Related primary sources |
-
-The design assumes a frozen base model and a fixed-rank adapter supplied by the application. Writer and Consolidator behavior is fixed during a stream. No independent teacher, reinforcement learning, growing parameter capacity or mastery-gated retirement is built in.
-
-Published without a software license (GitHub: None).
-
-## Maintenance schedule
-
-`Config.batch_size` controls the regular use/internalization interval in accounted source-task outcomes (default 4). `Config.capacity_interval_batches` is an integer greater than 1 (default 4); cold-memory consolidation without internalization runs every `batch_size * capacity_interval_batches` outcomes (default 16). Successful, failed and rejected outcomes advance the existing completion counter; read-only probes do not. The same Consolidator is used, with no training on the cold path. Coincident schedules run regular maintenance first, then cold maintenance.
-
-Each cold event processes up to `max_capacity_regions` regions (default 2), even below the memory limit. Empty/failed attempts wait for the next window. Busy workers coalesce overdue windows; persistent attempt markers prevent repeated claims on restart. A claimed attempt interrupted by a crash is not guaranteed to replay. The hard memory cap still rejects oversized writes, without triggering extra consolidation. Occupancy-based `capacity_trigger_ratio` and `capacity_target_ratio` are removed; old configurations must replace them with `capacity_interval_batches`. These are development defaults, not tuned research settings.
-
-[Lightweight provenance](docs/provenance.md)
+| How USE and DISUSE work together | [Architecture](docs/architecture.md) |
+| Each component's inputs and outputs | [Components and interfaces](docs/components.md) |
+| Where sources and training material come from | [Sources and training material](docs/provenance.md) |
+| How to connect a model, configure the system, and run tests | [Development](docs/development.md) |
+| The code and related research | [Source map](src/README.md) · [Literature](docs/literature.md) |

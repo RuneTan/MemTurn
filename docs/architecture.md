@@ -2,52 +2,50 @@
 
 [English](architecture.md) | [简体中文](architecture.zh-CN.md)
 
-The foreground executes tasks against pinned model and memory versions. The background writes, consolidates and learns. A task already in flight keeps its own view when later publications occur.
+MemTurn stores experience in two places: **external memory holds retrievable text, while the task model learns selected experience through fine-tuning.** USE organizes experience and trains the model; DISUSE compresses less-used memories. Together, they manage a limited space for accumulated experience.
+
+## Start with one task
+
+At task start, the runtime fixes the model version and memories available to that task. The agent retrieves relevant memories, chooses actions, and receives environment feedback. When the task ends, the Writer turns that experience into a memory with applicability conditions and source-step references.
+
+The foreground continues handling tasks while the background organizes experience. After a model update, new tasks use the new version; tasks already in progress keep their original model and memory view.
 
 ```mermaid
-flowchart LR
-  T[Task and observation] --> R[Bounded retrieval]
-  R --> A[Policy and environment]
-  A --> W[Grounded Writer]
-  W --> B[External bank]
-  B --> C[Regional Consolidator]
-  C --> B
-  C --> S[Eligible memory selection]
-  S --> L[Application learner]
-  L --> P[Prepare and publish]
-  P --> B
+flowchart TD
+  T[Task: retrieve, act, receive feedback] --> W[Writer records experience]
+  W --> M[External memory bank]
+  M --> T
+  M --> U[USE: organize recent experience]
+  U --> S[Store summaries and training material]
+  S --> M
+  S --> L[Select one summary from the bank and fine-tune]
+  L --> P[Publish model and remove selected memory]
+  P --> T
+  M --> D[DISUSE: organize cold memories]
+  D --> H[Keep summaries within half the actual input size]
+  H --> M
 ```
 
-## Two maintenance paths
+## USE: turn experience into training material
 
-Regular batches default to four completed source tasks. The Consolidator reads a bounded region and its available source evidence, and emits a replacement set. Source verification and atomic replacement precede learning. At most one eligible entry with at least two distinct cited source tasks is selected. Default mixed supervision combines a rule QA with original source decisions; the learner must honor the selected material, exclusions and configured training limits.
+Each USE cycle collects records awaiting consolidation and recently retrieved memories, fitting them within the input budget. This group of entries is called a *region*.
 
-A successful prepared artifact allows one transaction to change the published pointer and retire the selected entry version. A failed learning job preserves the committed external summaries. Retirement is not gated on a mastery test.
+The Consolidator can inspect the region and its sources. It produces summaries with two kinds of training material: **rule questions and answers** describe the experience, and **decision demonstrations** supply observations and actions from source tasks. After source checks, the system writes the summaries and material back to the bank.
 
-Consolidation samples are decoded and checked individually. Invalid samples are discarded without clearing valid neighbors; valid samples are retained in output order up to the shared count cap. A summary with an incomplete material mix remains external and is not eligible for mixed training. No extra retry or material-generation queue is introduced.
+The system then selects one trainable summary from the entire bank. By default, it must cite at least two distinct tasks, contain one rule QA and at least one decision demonstration, and fit the entry and training budgets. Candidates are ranked by distinct source-task count, with seeded tie-breaking. Each cycle selects at most one; summaries retained from earlier cycles also participate.
 
-Cold-memory maintenance runs on its slower fixed schedule, regardless of bank occupancy. Entries unaccessed for at least one batch are scanned from coldest to warmest and packed whole within `region_token_cap` (default 4096). Non-fitting entries are skipped while later entries are still considered; there is no item-count fraction. Outputs are ranked by source coverage and packed whole within `min(floor(actual_input_tokens / 2), output_token_cap)`. The half budget is calculated from the actual selected region, not the configured input ceiling. This event never trains; an unusable replacement preserves the original region.
+The learner fine-tunes the current model and prepares the new version. The system then commits two changes together: publishing the model and removing the selected external memory. If training or preparation fails, the current model and target memory remain available; completed external consolidation stays in place.
 
-## Evidence and permissions
+## DISUSE: make room for new experience
 
-The policy reads retrieved memory; it does not directly write the bank. The Writer sees one public episode. The Consolidator may inspect the selected region and accessible sources. The built-in provenance checker validates source links, not the semantic correctness of summaries. Free-form summaries are allowed; semantic quality is evaluated separately. Hidden answers and evaluation metadata are not public experience.
+DISUSE runs at a slower fixed cadence and focuses on external memory. Entries unused for at least one USE batch become candidates. The system scans them from coldest to warmest, adding entries within the input token budget and skipping entries that do not fit so it can consider later ones.
 
-Training excludes the target, its parents, same-source entries and recognized text copies from external-memory retrieval. Histories are rebuilt from original observation/action steps, without replaying historical retrieval messages. Text overlap with a memory does not invalidate native observations or actions. This controls the external-memory channel, not all possible answer clues. Read-only evaluation does not update memory access counters or restore pending learning jobs. Audit logs are analysis outputs, not a retrievable experience store.
+The same Consolidator produces compact summaries. The system favors summaries with broader source coverage and retains whole entries within **half the actual selected input**, also respecting the output cap. For example, an input of 1,000 tokens allows at most 500 output tokens. If no summary fits, the original region stays in place.
 
-Every training call receives `histories` and `memory_context` through the same learner contract. Empty context is represented by empty data, never by switching to a shorter call that drops history.
+One DISUSE cycle can process several regions in sequence. The number of memories in a region depends on their lengths and the input budget.
 
-## Budgets and recovery
+## How the schedules fit together
 
-`Config`, `Store` and `Runtime` bound active memory, retained sources, queues, retrieval, supervision and version state. SQLite transactions protect replacement and publication. Recovery records retain pending writes, stream position and a bounded completion window. Finite queues and task deadlines support offered-load accounting.
+By default, USE runs every 4 recorded task outcomes. DISUSE runs every 4 USE batches, or 16 outcomes. Successful, failed, and rejected outcomes all count. When both paths are due, USE runs first.
 
-Applications must still enforce deployment-wide RAM/GPU/storage limits and cancellation in their backends. The arrival driver is not a fixed-horizon evaluator; whole-run cutoff, parent-chain settlement, checkpoint branching and scientific evaluation remain separate integration work. No infinite deduplication or exactly-once external action guarantee is claimed.
-
-See [component contracts](components.md) and [development](development.md).
-
-The obsolete `cold_fraction` setting is removed; delete it from old configurations. The input token cap now directly bounds region selection.
-
-## Maintenance schedule
-
-`Config.batch_size` controls the regular use/internalization interval in accounted source-task outcomes (default 4). `Config.capacity_interval_batches` is an integer greater than 1 (default 4); cold-memory consolidation without internalization runs every `batch_size * capacity_interval_batches` outcomes (default 16). Successful, failed and rejected outcomes advance the existing completion counter; read-only probes do not. The same Consolidator is used, with no training on the cold path. Coincident schedules run regular maintenance first, then cold maintenance.
-
-Each cold event processes up to `max_capacity_regions` regions (default 2), even below the memory limit. Empty/failed attempts wait for the next window. Busy workers coalesce overdue windows; persistent attempt markers prevent repeated claims on restart. A claimed attempt interrupted by a crash is not guaranteed to replay. The hard memory cap still rejects oversized writes, without triggering extra consolidation. Occupancy-based `capacity_trigger_ratio` and `capacity_target_ratio` are removed; old configurations must replace them with `capacity_interval_batches`. These are development defaults, not tuned research settings.
+See [Development](development.md) for intervals, region sizes, and per-cycle limits; [Components](components.md) for data flow between modules; and [Sources and training material](provenance.md) for source checks and training inputs.

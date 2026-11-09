@@ -1,7 +1,7 @@
-# Models
+# Model interaction
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Transport-independent task policy, experience operators, message contracts and budget wrappers. Applications supply the client.
+`protocol.py` provides task policies, message formats, and the client interface; `agents.py` implements prompt-based Writer and Consolidator components; `budget.py` accounts for and limits model-call tokens. Inject a chat client to connect the chosen model service.
 
-See [components](../../../docs/components.md).
+[Components and interfaces](../../../docs/components.md) · [Development](../../../docs/development.md)

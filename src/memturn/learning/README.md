@@ -2,8 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Grounded training materials, learner contracts and artifact archive utilities. No optimizer or model loader is bundled.
+`materials.py` builds and organizes training material, `base.py` defines the learner interface, and `archive.py` provides artifact archiving and recovery tools.
 
-The single training contract is `train(examples, parent_version, *, histories, memory_context=())`. Native decision history is always provided; optional external memory can be empty.
+Training uses `train(examples, parent_version, *, histories, memory_context=())`, supplying examples, original decision histories, and the external memories available to the job.
 
-See [components](../../../docs/components.md).
+[Components and interfaces](../../../docs/components.md) · [Development](../../../docs/development.md)

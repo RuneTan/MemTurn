@@ -2,7 +2,7 @@
 
 [English](literature.md) | [简体中文](literature.zh-CN.md)
 
-Use the original sources below; inclusion here does not imply successful reproduction.
+These papers are starting points for reading about external memory, parametric learning, and experience accumulated across tasks.
 
 | Paper | Original source |
 | --- | --- |
@@ -13,5 +13,3 @@ Use the original sources below; inclusion here does not imply successful reprodu
 | Scaling Self-Evolving Agents via Parametric Memory / TMEM | [arXiv:2606.04536v1](https://arxiv.org/abs/2606.04536v1) |
 | Dual-Layer Agentic Memory | [arXiv:2608.22215v1](https://arxiv.org/abs/2608.22215v1) |
 | Cortex | [arXiv:2610.20399](https://arxiv.org/abs/2610.20399) |
-
-These papers motivate the design and define relevant comparison methods. Their experimental protocols and resource assumptions differ, so their reported scores are not directly comparable.

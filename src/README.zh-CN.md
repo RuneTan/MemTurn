@@ -2,4 +2,4 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-`memturn` 包分为数据约定／配置、记忆、模型交互、学习、任务和运行系统。入口见[组件约定](../docs/components.zh-CN.md)，实际模型后端由应用提供。
+实现位于 [`memturn/`](memturn/README.zh-CN.md)。从 [`Runtime`](memturn/runtime/service.py) 可以跟随任务执行、经验整理和模型更新的完整流程；[组件与接口](../docs/components.zh-CN.md)按职责介绍各模块。

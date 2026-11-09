@@ -1,29 +1,40 @@
-# Lightweight provenance checks
+# Sources and training material
 
 [English](provenance.md) | [简体中文](provenance.zh-CN.md)
 
-Updated: 2026-11-09. `Validator(store)` checks source provenance and training-data fidelity. It does not certify that a source entails a summary. No LLM judge, full-episode replay, literal summary matching or positive-score requirement is used.
+Each memory carries references identifying the task and step it came from. These references let the system revisit experience, construct training material, and count source coverage when selecting summaries.
 
-## Citation lifecycle
+## Where a reference comes from
 
-The application records each episode with a unique task ID and zero-based steps. Writer proposes a free-form memory and explicit `supports` references, restricted to its current episode. Consolidator can inspect selected memories and their accessible source steps, then emits a summary with explicit parent references and citations. These are model-declared citations, not automatically proven support. A replacement may cite only tasks belonging to its declared contributing parents, which must be in the selected region.
+The application assigns each episode a unique `task_id`, with steps numbered from 0. The Writer produces a memory from the current task and lists its source steps in `supports`, for example:
 
-A cited episode must still exist, its ID must match, and its step must be an integer in range; boolean/negative/out-of-range indices are invalid. All declared references must pass these checks. Summary content and applicability must be nonempty, but need not quote the source. A real citation can accompany an incorrect summary; structural admission cannot detect that.
+```json
+[{"task_id": "task_a", "step": 2}, {"task_id": "task_a", "step": 5}]
+```
 
-## Source coverage and selection
+When consolidating memories, the Consolidator declares which input memories contributed to the new summary and chooses references from the tasks associated with those parents. The summary can express the experience in new words; the references connect it to the original episodes.
 
-`source_coverage_count(memory)` counts distinct task IDs among available, structurally valid citations. Duplicate steps or multiple memories from one task do not add coverage. It does not count retrievals, parent entries or generated QA. It is a coverage proxy, not an independent semantic support score. The regular selector and cold-output packing rank by this count, with seeded tie-breaking.
+The built-in `Validator(store)` checks the database directly: the task must remain available, the step number must be valid, and parents and sources must fall within the allowed scope. Summary content and applicability conditions must also be present. These are lightweight structural checks; summary quality is assessed through content review and subsequent task performance.
 
-Existing storage/configuration keys `supports`, `min_support_tasks` (default 2) and `selection_policy="support"` remain for compatibility, with this structural meaning. The Python checker is now constructed as `Validator(store)`; the old injected verifier argument and `support_count` method are retired. Code callers should use `source_coverage_count`.
+## How source coverage is counted
 
-## Training materials and boundaries
+`source_coverage_count(memory)` counts distinct task IDs among valid references. For example, citing steps 2 and 5 of `task_a` and step 1 of `task_b` gives a source coverage count of **2**. Repeated references to the same task count once.
 
-Decision demonstrations use the original observation and action at a cited step. The decoder copies these fields and rejects supplied replacements. The source action must have been accepted or explicitly marked admissible; it need not produce immediate score gain. Material checks enforce exact source fidelity, same-step input, memory-version binding and citation scope. These checks apply to demonstrations, not to wording of the summary.
+By default, USE ranks learning candidates by this count, and DISUSE uses it to prioritize summaries for retention. References are stored in `supports`; the minimum source-count setting is `min_support_tasks`, with a default of 2. Retrieval recency separately identifies recently used memories and orders cold memories.
 
-A rule QA target is copied from the summary or its declared content spans. Its source references must be a nonempty subset of the memory citations; it adds no coverage. Mixed supervision still needs exactly one rule QA and at least one valid decision example. Existing budgets, student exclusions, publication checks and retirement behavior remain in force.
+## How the two material types are built
 
-For consolidation outputs, a malformed sample is skipped during decoding with a warning identifying its position and reason. Runtime checks the remaining samples individually, removes identical samples, then retains valid ones in output order up to `max_examples_per_job` across the proposal. The audit callback records invalid, duplicate and over-budget counts when configured. Repeated content references are counted once; repeating the same decision citation does not invalidate it. Mixed supervision requires one distinct rule QA and at least one decision. Missing a required type leaves the valid summary and remaining samples in external memory, but makes it ineligible for mixed training. There is no automatic replenishment or retry queue. Invalid summary citations still reject the replacement set; body and serialized-data budgets still apply.
+| Material | Input | Training target |
+| --- | --- | --- |
+| Rule QA | A question about the summary | The full summary or explicitly referenced content spans |
+| Decision demonstration | The original observation at a source step, with its preceding task history | The action actually taken, accepted by the environment or marked as admissible |
 
-Student exclusions apply to external-memory retrieval: omit the selected version, parents, same-source entries and recognized identical content. Reconstruct decision history from the original steps without historical retrieval messages. Preserve native observations and actions even if their text overlaps excluded memory. QA question/answer text overlap produces a `qa_text_overlap` audit event, not a rejection: a short answer such as `open` can occur inside `reopen`. Generation prompts still discourage quoting the answer; obvious copying and other quality problems need review. Admission does not certify the absence of answer leakage, semantic correctness or internalization.
+The decoder copies the source observation and action for decision demonstrations. The validator checks the bound memory version, source scope, and fidelity to the original record. Default mixed training requires one distinct rule QA and at least one decision demonstration.
 
-There is no mandatory `observed_transition` format or native replay module. Benchmark scoring may still use its official evaluator, separately from memory admission. Log generated summaries and citations for quality audits and evaluate utility on independent tasks; admission is not evidence of truth or generalization.
+Material is processed sample by sample: retain valid samples, deduplicate identical examples and repeated content references, then apply the count limit in generation order. Summaries with incomplete material remain available as external memory. If a question contains its answer text, a `qa_text_overlap` event flags it for review; text overlap alone keeps the sample eligible.
+
+## What the model reads during training
+
+The learner receives training examples, original task history, and filtered external memory. To train on the selected experience without supplying it again as retrieved context, the external-memory input excludes the target summary, its parents, memories sharing its sources, and copies with the same content. History is rebuilt from original observations and actions, preserving the task experience; past retrieved text is handled through the external-memory channel.
+
+See [Components and interfaces](components.md) for the complete training inputs.

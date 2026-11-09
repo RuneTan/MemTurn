@@ -1,7 +1,7 @@
-# Tasks
+# Task environments
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Environment contracts, optional native wrappers and process integration.
+`base.py` defines the environment methods `reset`, `step`, and `close`. `scienceworld.py` and `alfworld.py` wrap their respective environments; `process.py` exchanges JSON messages with a separate environment process. See Development for dependencies and process configuration.
 
-See [components](../../../docs/components.md).
+[Components and interfaces](../../../docs/components.md) · [Development](../../../docs/development.md)

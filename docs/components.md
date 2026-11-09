@@ -1,42 +1,58 @@
-# Components and contracts
+# Components and interfaces
 
 [English](components.md) | [简体中文](components.zh-CN.md)
 
-| Module | Responsibility and boundary |
+The components below follow an experience from task execution to a model update. Paths are relative to `src/memturn/`.
+
+| Component | Input and role | Implementation |
+| --- | --- | --- |
+| Task policy and environment | The policy chooses actions from observations, memories, and history; the environment executes them and returns feedback | `models/protocol.py`, `tasks/base.py` |
+| Writer | Turns one task episode into a memory with source references | `models/agents.py` |
+| Memory bank and retrieval | Stores episodes, memories, and versions; retrieves entries within a task's view | `memory/store.py`, `memory/retrieval.py` |
+| Consolidator | Turns a region and its sources into summaries and training material | `models/agents.py` |
+| Source checks and selection | Checks references and material; selects learning targets and cold regions | `memory/validation.py`, `memory/policies.py` |
+| Learner | Trains on supplied material, prepares model versions, and retains those in use | `learning/base.py`, `learning/materials.py` |
+| Runtime | Coordinates tasks, background maintenance, and model publication | `runtime/service.py` |
+
+## Task execution and experience processing
+
+The policy's `act(observation, memories, model_version, history)` returns an environment action or a memory-search request. Environments expose `reset(task)`, `step(action)`, and `close()`, with step feedback represented by `Transition`.
+
+The Writer's `write(episode, batch)` returns a candidate memory, or `None` when there is nothing to record. The Consolidator's `consolidate(region, mode, batch, output_budget)` returns summaries and their training material. Prompt-based implementations live in `models/agents.py`; an injected `ChatClient.complete(messages, model_override)` connects them to the chosen model service.
+
+`Validator(store)` checks memories and material against stored sources. [Sources and training material](provenance.md) explains how references are created and checked.
+
+## Learning and publication
+
+The learner uses one interface:
+
+```text
+train(examples, parent_version, *, histories, memory_context=()) -> Artifact
+prepare(artifact) -> None
+retain(versions) -> None
+```
+
+- `examples`: rule QA and decision demonstrations for the selected summary.
+- `parent_version`: the model version to continue fine-tuning.
+- `histories[(task_id, step)]`: the original task steps preceding that decision. A first-step decision has an empty tuple; QA-only training has an empty dictionary.
+- `memory_context`: the tuple of external memories available to this training job, which may be empty.
+
+`train` returns an `Artifact`, `prepare` makes that model version ready to use, and the runtime publishes it. `retain` receives the versions still in use so it can clean up older artifacts. The application's learner implements model loading, fixed-rank LoRA training, and saving.
+
+## Assemble the components
+
+Create `Store(path, config, counter)` and `Validator(store)`, then supply the Writer, Consolidator, and learner to `Runtime(store, writer, consolidator, validator, learner=...)`. Execute tasks with `run_task(task, environment, policy)`. At shutdown, close the Runtime before the Store.
+
+Supporting modules include:
+
+| Purpose | Modules |
 | --- | --- |
-| `contracts.py` | Immutable task, episode, evidence, memory, snapshot and artifact records |
-| `config.py`, `tokens.py` | Validated limits and injectable counters; lexical counting is not model-token accounting |
-| `memory/store.py` | SQLite state, sources, versions, transactions, queues and recovery bookkeeping |
-| `memory/retrieval.py` | Bounded search over the task's memory view |
-| `memory/validation.py` | Provenance, replacement and training-material admission |
-| `memory/policies.py` | One-entry selection, cold-region selection and half-budget packing |
-| `models/agents.py` | Client-independent prompted Writer and regional Consolidator |
-| `models/protocol.py` | Chat client contract, action formatting, policy and deadline contexts; no transport |
-| `models/budget.py` | Token reservations and consumption reconciliation around an injected client |
-| `learning/materials.py`, `learning/base.py` | Grounded QA/decision material and the learner lifecycle contract |
-| `learning/archive.py` | Checksummed adapter archival and recovery utilities |
-| `runtime/service.py` | Foreground/background coordination, publication, retirement and cleanup |
-| `runtime/arrival.py`, `runtime/recovery.py` | Offered load, deadlines, directory leases and task-manifest identity |
-| `runtime/process.py`, `runtime/resources.py` | Bounded subprocess communication and resource measurement |
-| `tasks/base.py`, `tasks/process.py` | Environment contract and process bridge |
-| `tasks/scienceworld.py`, `tasks/alfworld.py` | Optional environment wrappers; assets and dependencies are not bundled |
-| `matrix.py` | Pure configuration transformations for comparison arms |
+| Data types, configuration, and token counting | `contracts.py`, `config.py`, `tokens.py` |
+| Model-call budgets | `models/budget.py` |
+| Adapter archives and recovery | `learning/archive.py` |
+| Task arrivals, deadlines, and recovery records | `runtime/arrival.py`, `runtime/recovery.py` |
+| Subprocess communication and resource measurement | `runtime/process.py`, `runtime/resources.py` |
+| Environment integration and process bridging | `tasks/scienceworld.py`, `tasks/alfworld.py`, `tasks/process.py` |
+| Comparison configurations | `matrix.py` |
 
-## Supply these application components
-
-- **Policy:** `act(observation, memories, model_version, history)` returns an environment action or a bounded memory-search request. `ChatPolicy` can use an injected `ChatClient.complete(messages, model_override)` implementation.
-- **Writer:** `write(episode, batch)` returns a candidate memory or `None`. The prompted implementation uses public episode evidence.
-- **Consolidator:** `consolidate(region, mode, batch, output_budget)` returns candidate replacement memories. Its bounded tool loop can inspect only allowed region/source evidence. Runtime validates samples individually and enforces the shared sample-count cap; invalid samples do not erase valid neighbors.
-- **Provenance checker:** use the built-in `Validator(store)`. It checks citation existence/scope, material bindings and source-copy fidelity without a model, replay or semantic predicate.
-- **Learner:** `train(examples, parent_version, *, histories, memory_context=())` returns an `Artifact`; `prepare(artifact)` ensures it can be used; `retain(live_versions)` releases only unused versions. Runtime always supplies native histories and permitted external memories through this single interface. Applications implement actual optimization, fixed-rank continuation, persistence and loading.
-- **Environment:** `reset(task)`, `step(action)` and `close()` exchange public observations and `Transition` records. Optional wrappers never install their dependencies automatically.
-
-Construct `Store(path, config, counter)`, a `Validator(store)`, then `Runtime(store, writer, consolidator, validator, learner=...)`. Execute with `run_task(task, environment, policy)` and close runtime before store. No default backend is selected. Passing `learner=None` disables parameter learning; a read-only runtime uses no Writer, Consolidator or validator.
-
-`histories[(task_id, step)]` contains the original steps before each decision, excluding historical retrieval messages. A first-step decision has an empty tuple; a QA-only job has an empty history map. `memory_context` is a filtered tuple and may be empty. Existing learners must accept these keyword arguments: the two-argument fallback and `accepts_memory_context` flag are removed. An outdated learner fails the job without publishing or retiring its selected memory.
-
-For `ProcessEnvironment`, applications supply `worker_command` implementing `configure`, `reset`, `step` and `close` through the JSON process bridge. No native worker script or WebArena placeholder is bundled.
-
-The complete method needs functional application components. An interface alone does not implement learning or prove internalization. See [development responsibilities](development.md).
-
-The maintenance hyperparameters are `batch_size` and `capacity_interval_batches > 1`; see [schedule and recovery semantics](architecture.md).
+See [Development](development.md) for installation, integration requirements, and common settings.
