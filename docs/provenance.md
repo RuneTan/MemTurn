@@ -2,7 +2,7 @@
 
 [English](provenance.md) | [简体中文](provenance.zh-CN.md)
 
-Updated: 2026-11-01. `Validator(store)` checks source provenance and training-data fidelity. It does not certify that a source entails a summary. No LLM judge, full-episode replay, literal summary matching or positive-score requirement is used.
+Updated: 2026-11-09. `Validator(store)` checks source provenance and training-data fidelity. It does not certify that a source entails a summary. No LLM judge, full-episode replay, literal summary matching or positive-score requirement is used.
 
 ## Citation lifecycle
 
@@ -21,5 +21,9 @@ Existing storage/configuration keys `supports`, `min_support_tasks` (default 2) 
 Decision demonstrations use the original observation and action at a cited step. The decoder copies these fields and rejects supplied replacements. The source action must have been accepted or explicitly marked admissible; it need not produce immediate score gain. Material checks enforce exact source fidelity, same-step input, memory-version binding and citation scope. These checks apply to demonstrations, not to wording of the summary.
 
 A rule QA target is copied from the summary or its declared content spans. Its source references must be a nonempty subset of the memory citations; it adds no coverage. Mixed supervision still needs exactly one rule QA and at least one valid decision example. Existing budgets, student exclusions, publication checks and retirement behavior remain in force.
+
+For consolidation outputs, a malformed sample is skipped during decoding with a warning identifying its position and reason. Runtime checks the remaining samples individually, retains valid ones in output order up to `max_examples_per_job` across the proposal, and records invalid/over-budget counts through the audit callback when configured. Neither one bad sample nor exceeding the count cap clears the whole set. Missing a required sample type leaves the valid summary and remaining samples in external memory, but makes it ineligible for mixed training. There is no automatic replenishment or retry queue. Invalid summary citations still reject the replacement set; body and serialized-data budgets still apply.
+
+Student exclusions apply to external-memory retrieval: omit the selected version, parents, same-source entries and recognized identical content. Reconstruct decision history from the original steps without historical retrieval messages. Preserve native observations and actions even if their text overlaps excluded memory. A generated QA question still cannot contain its own answer verbatim. This policy does not certify the absence of semantic clues or prove internalization.
 
 There is no mandatory `observed_transition` format or native replay module. Benchmark scoring may still use its official evaluator, separately from memory admission. Log generated summaries and citations for quality audits and evaluate utility on independent tasks; admission is not evidence of truth or generalization.

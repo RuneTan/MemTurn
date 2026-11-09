@@ -14,7 +14,7 @@ This repository contains the core implementation, component contracts and regres
 2. Write experience supported by that task's observations, actions and feedback.
 3. Consolidate a bounded region across tasks into replacement memories and training material.
 4. Select at most one eligible memory, prioritizing source coverage across distinct tasks.
-5. Train without exposing that memory or its identified source aliases to the student.
+5. Exclude that memory and its identified source aliases from the student's external-memory input; preserve native observations and actions.
 6. Prepare the new model version, then atomically publish its pointer and retire the selected memory version.
 
 Periodic cold-memory maintenance is separate: summarize a cold region and retain whole outputs within half its input token budget, without starting training. Publication is a successful engineering transition, not proof that the model mastered the experience.

@@ -319,12 +319,18 @@ class Runtime:
             raise ValueError("invalid or empty consolidation proposal")
         if sum(self.counter.count(m.payload) for m in outputs) > self.config.output_token_cap:
             raise BudgetExceeded("consolidation body output budget exceeded")
-        if sum(len(m.examples) for m in outputs) > self.config.max_examples_per_job:
-            # Invalid training material does not invalidate grounded external text.
-            outputs = tuple(replace(m, examples=()) for m in outputs)
-        outputs = tuple(replace(m, examples=()) if m.examples and not self.validator.trainable(m) else m
-                        for m in outputs)
-        return outputs
+        kept, remaining = [], self.config.max_examples_per_job
+        for memory in outputs:
+            valid = tuple(e for e in memory.examples if self.validator.valid_example(e, memory))
+            examples = valid[:remaining]
+            if len(examples) != len(memory.examples):
+                self.event('training_material_filtered', memory_ref=memory.ref,
+                           invalid=len(memory.examples) - len(valid),
+                           over_budget=len(valid) - len(examples))
+            kept.append(replace(memory, examples=examples))
+            remaining -= len(examples)
+        # Keep partial material; candidate selection checks the required mix later.
+        return tuple(kept)
 
     def regular_maintenance(self, scheduled=False):
         with self.maintenance_lock:
@@ -386,35 +392,14 @@ class Runtime:
                                      excluded_tasks=selected.task_ids)
 
     def training_histories(self, selected, examples):
-        """Keep real states intact; reject contaminated inputs instead of inventing states."""
-        compact = lambda text: ' '.join(text.casefold().split())
-        forbidden = {compact(selected.content)}
-        for memory in self.store.memories():
-            if memory.ref in selected.parents or memory.task_ids & selected.task_ids:
-                forbidden.add(compact(memory.content))
-        for task_id in selected.task_ids:
-            episode = self.store.episode(task_id)
-            if episode:
-                for event in episode.retrievals:
-                    for exposed in event.memories:
-                        if (exposed.ref in (selected.ref, *selected.parents)
-                                or set(exposed.task_ids) & selected.task_ids):
-                            forbidden.add(compact(exposed.payload))
-                            forbidden.add(compact(exposed.payload.partition('\n')[2]))
-        forbidden.discard('')
+        """Copy native history only; external memory is filtered in training_memories."""
         histories = {}
         for example in examples:
-            history = ()
             if example.example_type == 'decision':
                 episode = self.store.episode(example.task_id)
                 if episode is None:
                     raise ValueError('training source is no longer available')
-                history = episode.steps[:example.step]
-            inputs = [example.prompt, *(s.observation for s in history), *(s.action for s in history)]
-            if any(fragment in compact(text) for text in inputs for fragment in forbidden):
-                raise ValueError('training input repeats excluded memory; retain external memory')
-            if example.example_type == 'decision':
-                histories[(example.task_id, example.step)] = history
+                histories[(example.task_id, example.step)] = episode.steps[:example.step]
         return histories
 
     def _train(self, job_id, selected):

@@ -39,6 +39,12 @@ class Validator:
         return memory.examples
 
     def valid_example(self, example, memory):
+        try:
+            return self._valid_example(example, memory)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return False
+
+    def _valid_example(self, example, memory):
         if example.memory_ref != memory.ref or not example.prompt.strip() or not example.target.strip():
             return False
         try:

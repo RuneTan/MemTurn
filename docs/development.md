@@ -16,3 +16,5 @@ The optional `runtime` extra supplies psutil for resource monitoring. Optional n
 When adding an application backend, validate evidence admission, material exclusions, token accounting, cancellation and candidate loading before publishing a version. In particular, test that failed training leaves the selected external memory intact and that old tasks keep their pinned version. Real hardware limits and scientific evaluation require separate acceptance.
 
 Source installation and tests validate engineering contracts only; they do not establish model quality, training effectiveness or benchmark performance.
+
+`tests/test_material_recovery.py` reproduces the short-word overlap and single-bad-sample failures, checks that valid material survives decoding/validation/count limits, and verifies publication with a context-aware fake learner. It also checks that forged actions and self-answering QA remain invalid. Native histories must stay intact while historical retrieval messages stay out of student inputs.

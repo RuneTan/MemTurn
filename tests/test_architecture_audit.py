@@ -147,15 +147,15 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.store.append(alias)
         self.assertEqual(self.runtime_for().training_memories(chosen),())
 
-    def test_repeated_rule_in_old_action_is_not_silently_trained(self):
+    def test_native_history_is_preserved_even_when_text_matches_memory(self):
         self.add('a'); self.add('b')
         chosen = self.summary()
         ep = self.store.episode('a')
         tampered = replace(ep,steps=(replace(ep.steps[0],action=chosen.content),*ep.steps[1:]))
         example = replace(chosen.examples[1],step=1,prompt='public later state')
         with patch.object(self.store,'episode',return_value=tampered):
-            with self.assertRaisesRegex(ValueError,'repeats excluded memory'):
-                self.runtime_for().training_histories(chosen,(example,))
+            histories = self.runtime_for().training_histories(chosen,(example,))
+        self.assertEqual(histories[('a',1)], tampered.steps[:1])
 
     def test_writer_cannot_claim_another_existing_episode(self):
         self.add('a')

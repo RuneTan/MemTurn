@@ -26,9 +26,9 @@
 
 - **任务策略：** `act(observation, memories, model_version, history)` 返回环境动作或受限的记忆检索请求。`ChatPolicy` 可使用自行注入的 `ChatClient.complete(messages, model_override)` 实现。
 - **Writer：** `write(episode, batch)` 返回候选记忆或 `None`。提示式实现以公开经历为证据。
-- **Consolidator：** `consolidate(region, mode, batch, output_budget)` 返回候选替换集合。有界工具循环只允许查看指定区域和来源。
+- **Consolidator：** `consolidate(region, mode, batch, output_budget)` 返回候选替换集合。有界工具循环只允许查看指定区域和来源。运行系统逐条检查样本并执行整次提案的数量上限，坏样本不会连带清空好样本。
 - **来源检查器：** 直接使用内置 `Validator(store)`，检查引用存在、范围、材料绑定与原始样本一致性，不需要模型、环境回放或语义判定函数。
-- **学习器：** `train(examples, parent_version)` 返回 `Artifact`；`prepare(artifact)` 确保候选可用；`retain(live_versions)` 只释放无任务使用的版本。支持丰富材料时，还可通过运行系统明确的能力分支接收许可记忆与历史。实际优化、固定秩延续、保存和加载由使用者实现。
+- **学习器：** `train(examples, parent_version)` 返回 `Artifact`；`prepare(artifact)` 确保候选可用；`retain(live_versions)` 只释放无任务使用的版本。目前只有 `accepts_memory_context=True` 时才通过 `histories`、`memory_context` 关键字参数传递原生历史和许可记忆。基础双参数路径收不到历史，这是依赖历史的决策训练尚待修复的接口限制。实际优化、固定秩延续、保存和加载由使用者实现。
 - **环境：** `reset(task)`、`step(action)`、`close()` 交换公开观察与 `Transition`。可选包装不会自动安装依赖。
 
 先构造 `Store(path, config, counter)`、`Validator(store)`，再构造 `Runtime(store, writer, consolidator, validator, learner=...)`。通过 `run_task(task, environment, policy)` 执行，结束时先关闭运行系统，再关闭数据库。不预选任何后端。`learner=None` 关闭参数学习；只读运行不设置 Writer、Consolidator 和校验器。

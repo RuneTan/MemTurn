@@ -1,10 +1,14 @@
 """Fixed-prompt writer and bounded, read-only tool-using consolidator prototype."""
 import json
+import logging
 import uuid
 from dataclasses import replace
 from ..contracts import Example, Memory, Support
 from ..learning.materials import covered_text
 from .protocol import parse_json
+
+
+logger = logging.getLogger(__name__)
 
 
 def decode_memory(value, batch, memory_id=None, source_lookup=None):
@@ -15,64 +19,72 @@ def decode_memory(value, batch, memory_id=None, source_lookup=None):
                     recency_anchor=batch, consolidated=bool(value.get('parents')))
     try:
         return replace(memory, examples=_decode_examples(value,memory,source_lookup))
-    except (KeyError,TypeError,ValueError,AttributeError):
+    except (KeyError,TypeError,ValueError,AttributeError) as error:
         if not memory.consolidated:
             raise
-        # Training-material failure alone cannot discard a valid external summary.
-        # Independent memory/provenance validation still runs before replacement.
+        logger.warning('Discarding malformed example collection for %s: %s', memory.ref, error)
         return memory
 
 
 def _decode_examples(value, memory, source_lookup):
-    local_id = value.get('local_id', memory.id)
     examples = []
-    for original in value.get('training_examples', value.get('examples', [])):
-        item = dict(original)
-        kind = item.get('example_type', 'decision')
-        if item.get('memory_local_id', local_id) != local_id:
-            raise ValueError('example belongs to another emitted memory')
-        if item.get('memory_ref', memory.ref) not in (memory.ref, local_id):
-            raise ValueError('example belongs to another memory version')
-        refs = item.get('covered_content_refs', ['content'] if memory.consolidated else [])
-        normalized = []
-        for ref in refs:
-            if ref == 'content' or ref.startswith('span:'):
-                normalized.append(memory.ref + '#' + ref)
-            elif ref.startswith(str(local_id) + '#'):
-                normalized.append(memory.ref + ref[len(str(local_id)):])
-            elif ref.startswith(memory.ref + '#'):
-                normalized.append(ref)
-            else:
-                raise ValueError('foreign covered-content reference')
-        if kind == 'rule_qa':
-            refs = tuple(normalized)
-            target = item.get('target', covered_text(memory, refs))
-            supports = tuple(Support(**s) for s in item.get('support_refs', value['supports']))
-            examples.append(Example('', -1, item.get('question', item.get('prompt', '')), target,
-                example_type='rule_qa', output_kind=item.get('output_kind', 'text'), memory_ref=memory.ref,
-                covered_content_refs=refs, support_refs=supports))
-            continue
-        if kind != 'decision':
-            raise ValueError('unknown example type')
-        episode = source_lookup(item["task_id"]) if source_lookup else None
-        index = item["step"]
-        if (not episode or isinstance(index, bool) or not isinstance(index, int)
-                or not 0 <= index < len(episode.steps)):
-            raise ValueError("training reference has no available source step")
-        source = episode.steps[index]
-        if not source.accepted and source.evidence.get('action_admissible') is not True:
-            raise ValueError("training reference points to an unaccepted source action")
-        if ("prompt" in item and item["prompt"] != source.observation
-                or "target" in item and item["target"] != source.action):
-            raise ValueError("training material differs from original source step")
-        item.update(prompt=source.observation, target=source.action)
-        examples.append(Example(item['task_id'], item['step'], item['prompt'], item['target'],
-            input_step=item.get('input_step'), example_type='decision',
-            output_kind=item.get('output_kind', 'environment_action'),
-            memory_ref=memory.ref if memory.consolidated else '',
-            covered_content_refs=tuple(normalized),
-            support_refs=(Support(item['task_id'],item['step']),) if memory.consolidated else ()))
+    for index, original in enumerate(value.get('training_examples', value.get('examples', []))):
+        try:
+            examples.append(_decode_example(original, value, memory, source_lookup))
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            if not memory.consolidated:
+                raise
+            logger.warning('Discarding example %s for %s: %s', index, memory.ref, error)
     return tuple(examples)
+
+
+def _decode_example(original, value, memory, source_lookup):
+    local_id = value.get('local_id', memory.id)
+    item = dict(original)
+    kind = item.get('example_type', 'decision')
+    if item.get('memory_local_id', local_id) != local_id:
+        raise ValueError('example belongs to another emitted memory')
+    if item.get('memory_ref', memory.ref) not in (memory.ref, local_id):
+        raise ValueError('example belongs to another memory version')
+    refs = item.get('covered_content_refs', ['content'] if memory.consolidated else [])
+    normalized = []
+    for ref in refs:
+        if ref == 'content' or ref.startswith('span:'):
+            normalized.append(memory.ref + '#' + ref)
+        elif ref.startswith(str(local_id) + '#'):
+            normalized.append(memory.ref + ref[len(str(local_id)):])
+        elif ref.startswith(memory.ref + '#'):
+            normalized.append(ref)
+        else:
+            raise ValueError('foreign covered-content reference')
+    if kind == 'rule_qa':
+        refs = tuple(normalized)
+        target = item.get('target', covered_text(memory, refs))
+        supports = tuple(Support(**s) for s in item.get('support_refs', value['supports']))
+        return Example('', -1, item.get('question', item.get('prompt', '')), target,
+            example_type='rule_qa', output_kind=item.get('output_kind', 'text'), memory_ref=memory.ref,
+            covered_content_refs=refs, support_refs=supports)
+    if kind != 'decision':
+        raise ValueError('unknown example type')
+    if not isinstance(item.get('task_id'), str) or not item['task_id']:
+        raise ValueError('training reference has no valid task ID')
+    episode = source_lookup(item["task_id"]) if source_lookup else None
+    index = item["step"]
+    if (not episode or isinstance(index, bool) or not isinstance(index, int)
+            or not 0 <= index < len(episode.steps)):
+        raise ValueError("training reference has no available source step")
+    source = episode.steps[index]
+    if not source.accepted and source.evidence.get('action_admissible') is not True:
+        raise ValueError("training reference points to an unaccepted source action")
+    if ("prompt" in item and item["prompt"] != source.observation
+            or "target" in item and item["target"] != source.action):
+        raise ValueError("training material differs from original source step")
+    return Example(item['task_id'], item['step'], source.observation, source.action,
+        input_step=item.get('input_step'), example_type='decision',
+        output_kind=item.get('output_kind', 'environment_action'),
+        memory_ref=memory.ref if memory.consolidated else '',
+        covered_content_refs=tuple(normalized),
+        support_refs=(Support(item['task_id'],item['step']),) if memory.consolidated else ())
 
 
 SCHEMA = ('Memory fields: content:string, applicability:string, '
@@ -169,8 +181,7 @@ class ChatConsolidator:
                 if not memory.parents or not set(memory.parents) <= set(refs):
                     raise ValueError("emitted memory has invalid parents")
                 outputs.append(memory)
-                if sum(len(m.examples) for m in outputs) > self.store.config.max_examples_per_job:
-                    raise ValueError('consolidator exceeded its training-example budget')
+                # Runtime filters individual examples and enforces the shared count cap.
                 if sum(self.counter.count(m.payload) for m in outputs) > output_budget:
                     raise ValueError("consolidator exceeded its body output budget")
                 result = {"accepted_as_candidate": memory.ref}
