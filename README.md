@@ -25,6 +25,7 @@ The repository provides task scheduling, memory management, experience consolida
 
 | What would you like to understand? | Read |
 | --- | --- |
+| The research question, related work, and planned experiments | [Research direction](docs/research.md) |
 | How USE and DISUSE work together | [Architecture](docs/architecture.md) |
 | Each component's inputs and outputs | [Components and interfaces](docs/components.md) |
 | Where sources and training material come from | [Sources and training material](docs/provenance.md) |
