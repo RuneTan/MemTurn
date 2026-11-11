@@ -84,10 +84,6 @@ class Validator:
             return False
         if self.store.config.training_material == 'mixed' and {e.example_type for e in examples} != {'rule_qa','decision'}:
             return False
-        if self.store.config.training_material == 'mixed' and sum(e.example_type == 'rule_qa' for e in examples) != 1:
-            return False
-        if self.store.config.training_material == 'qa_only' and len(examples) != 1:
-            return False
         return all(self.valid_example(e, memory) for e in examples)
 
     def validate_replacement(self, region, outputs):

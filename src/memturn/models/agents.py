@@ -100,7 +100,7 @@ SCHEMA = ('Memory fields: content:string, applicability:string, '
 MIXED_SCHEMA = (
     'Memory fields: local_id:string, content:string, applicability:string, '
     'supports:[{task_id:string,step:integer}], parents:[contributing input refs], examples:[...]. '
-    'In regular mode, a trainable memory needs one rule_qa plus source-linked decision examples. '
+    'In regular mode, a trainable memory needs at least one rule_qa plus at least one source-linked decision example. '
     'rule_qa fields: example_type="rule_qa", output_kind="text", question:string, '
     'covered_content_refs:["content"]. Its target is copied from content by the program; '
     'ask about applicable public circumstances without quoting the answer. '

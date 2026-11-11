@@ -32,7 +32,7 @@ Each USE cycle collects records awaiting consolidation and recently retrieved me
 
 The Consolidator can inspect the region and its sources. It produces summaries with two kinds of training material: **rule questions and answers** describe the experience, and **decision demonstrations** supply observations and actions from source tasks. After source checks, the system writes the summaries and material back to the bank.
 
-The system then selects one trainable summary from the entire bank. By default, it must cite at least two distinct tasks, contain one rule QA and at least one decision demonstration, and fit the entry and training budgets. Candidates are ranked by distinct source-task count, with seeded tie-breaking. Each cycle selects at most one; summaries retained from earlier cycles also participate.
+The system then selects one trainable summary from the entire bank. By default, it must cite at least two distinct tasks, contain at least one valid rule QA and at least one valid decision demonstration, and fit the entry and training budgets. Candidates are ranked by distinct source-task count, with seeded tie-breaking. Each cycle selects at most one; summaries retained from earlier cycles also participate.
 
 The learner fine-tunes the current model and prepares the new version. The system then commits two changes together: publishing the model and removing the selected external memory. If training or preparation fails, the current model and target memory remain available; completed external consolidation stays in place.
 

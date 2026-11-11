@@ -29,7 +29,7 @@ By default, USE ranks learning candidates by this count, and DISUSE uses it to p
 | Rule QA | A question about the summary | The full summary or explicitly referenced content spans |
 | Decision demonstration | The original observation at a source step, with its preceding task history | The action actually taken, accepted by the environment or marked as admissible |
 
-The decoder copies the source observation and action for decision demonstrations. The validator checks the bound memory version, source scope, and fidelity to the original record. Default mixed training requires one distinct rule QA and at least one decision demonstration.
+The decoder copies the source observation and action for decision demonstrations. The validator checks the bound memory version, source scope, and fidelity to the original record. After deduplication, default mixed training requires at least one valid rule QA and at least one valid decision demonstration. The `qa_only` variant uses all retained valid rule QAs and requires at least one; both modes keep the existing sample and training budgets.
 
 Material is processed sample by sample: retain valid samples, deduplicate identical examples and repeated content references, then apply the count limit in generation order. Summaries with incomplete material remain available as external memory. If a question contains its answer text, a `qa_text_overlap` event flags it for review; text overlap alone keeps the sample eligible.
 

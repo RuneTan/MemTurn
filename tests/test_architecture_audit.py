@@ -192,13 +192,22 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(self.store.stats()['completed'],1)
 
-    def test_one_rule_question_per_mixed_candidate(self):
+    def test_mixed_candidate_requires_both_types_without_exact_question_count(self):
         self.add('a'); self.add('b')
         memory = self.summary()
         self.assertTrue(self.validator.trainable(memory))
         self.assertTrue(self.validator.trainable(replace(memory,examples=(*memory.examples,memory.examples[0]))))
         other_qa = replace(memory.examples[0], prompt='Which procedure should be used?')
-        self.assertFalse(self.validator.trainable(replace(memory,examples=(*memory.examples,other_qa))))
+        self.assertTrue(self.validator.trainable(replace(memory,examples=(*memory.examples,other_qa))))
+        self.assertFalse(self.validator.trainable(replace(memory,examples=(memory.examples[0],other_qa))))
+        decisions = tuple(e for e in memory.examples if e.example_type == 'decision')
+        self.assertFalse(self.validator.trainable(replace(memory,examples=decisions)))
+        self.store.config = replace(self.store.config, training_material='qa_only')
+        self.assertTrue(self.validator.trainable(replace(memory,examples=(memory.examples[0],other_qa))))
+        self.assertFalse(self.validator.trainable(replace(memory,examples=decisions)))
+        self.assertFalse(self.validator.trainable(replace(memory,examples=())))
+        invalid_qa = replace(other_qa, target='not the cited content')
+        self.assertFalse(self.validator.trainable(replace(memory,examples=(invalid_qa,))))
 
     def test_non_model_consolidator_also_obeys_output_budget(self):
         self.add('a')

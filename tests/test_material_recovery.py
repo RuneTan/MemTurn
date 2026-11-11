@@ -194,6 +194,45 @@ class MaterialRecoveryTests(unittest.TestCase):
         self.assertEqual(self.events[0]['duplicates'], 2)
         self.assertEqual(self.events[0]['over_budget'], 0)
 
+    def _multiple_questions_reach_learner(self, mode):
+        self.store.config = replace(self.store.config, training_material=mode)
+        second_qa = {'example_type':'rule_qa','question':'Under which conditions does this rule apply?'}
+        value = dict(self.value, examples=[self.value['examples'][0], second_qa,
+                                          self.value['examples'][0], self.value['examples'][1],
+                                          {'task_id':'b','step':0}])
+        memory = self.decode(value)
+        calls = []
+        class Operator:
+            def consolidate(self, *args): return (memory,)
+        class Learner:
+            def train(self, examples, parent_version, *, histories, memory_context=()):
+                calls.append((examples, histories, memory_context))
+                return Artifact('multi_qa', 'fixture', 'test-only', parent_version, {})
+            def prepare(self, artifact): pass
+            def retain(self, versions): pass
+        self.runtime = Runtime(self.store, None, Operator(), self.validator, Learner(),
+                               audit=self.events.append)
+        self.runtime.regular_maintenance()
+        self.assertEqual(len(calls), 1)
+        examples, histories, memories = calls[0]
+        questions = [e.prompt for e in examples if e.example_type == 'rule_qa']
+        self.assertEqual(questions, ['What strategy applies?', second_qa['question']])
+        decisions = [e for e in examples if e.example_type == 'decision']
+        self.assertEqual(len(decisions), 2 if mode == 'mixed' else 0)
+        expected_histories = {('a',0): (), ('b',0): ()} if mode == 'mixed' else {}
+        self.assertEqual(histories, expected_histories)
+        self.assertEqual(memories, ())
+        self.assertEqual(self.store.model_version, 'multi_qa')
+        self.assertNotIn(memory.ref, {m.ref for m in self.store.memories()})
+        filtered = next(e for e in self.events if e['event'] == 'training_material_filtered')
+        self.assertEqual(filtered['duplicates'], 1)
+
+    def test_multiple_valid_questions_train_and_publish_in_mixed_mode(self):
+        self._multiple_questions_reach_learner('mixed')
+
+    def test_multiple_valid_questions_train_and_publish_in_qa_only_mode(self):
+        self._multiple_questions_reach_learner('qa_only')
+
     def test_recovered_material_reaches_context_learner_and_can_publish(self):
         value = dict(self.value, examples=[self.value['examples'][0], {'example_type':'unsupported'},
                                            {'task_id':'a','step':1}],
