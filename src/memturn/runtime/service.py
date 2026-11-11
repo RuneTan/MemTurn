@@ -418,8 +418,9 @@ class Runtime:
     def _train(self, job_id, selected):
         with self.store.lock:
             live = {self.store.model_version} | {v.model_version for v, _ in self.store.views.values()}
-        if live - {self.store.model_version}:
-            self.store.job(job_id, mode="regular", state="SKIPPED", reason="retired_versions_still_in_use")
+        # Reserve one slot for the candidate; readers sharing a version count once.
+        if len(live) + 1 > self.config.max_adapter_versions:
+            self.store.job(job_id, mode="regular", state="SKIPPED", reason="adapter_version_limit")
             return
         if hasattr(self.learner, 'has_artifact_capacity') and not self.learner.has_artifact_capacity(self.config.max_adapter_versions):
             self.store.job(job_id, mode='regular', state='SKIPPED', reason='artifact_directory_limit')

@@ -8,7 +8,7 @@ MemTurn stores experience in two places: **external memory holds retrievable tex
 
 At task start, the runtime fixes the model version and memories available to that task. The agent retrieves relevant memories, chooses actions, and receives environment feedback. When the task ends, the Writer turns that experience into a memory with applicability conditions and source-step references.
 
-The foreground continues handling tasks while the background organizes experience. After a model update, new tasks use the new version; tasks already in progress keep their original model and memory view.
+The foreground continues handling tasks while the background organizes experience. After a model update, new tasks use the new version; tasks already in progress keep their original model and memory view. Training reserves one slot for a new version alongside the distinct versions still in use, including the current version; the total must fit `max_adapter_versions` (3). Publication checks this limit again.
 
 ```mermaid
 flowchart TD

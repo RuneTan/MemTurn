@@ -1,5 +1,6 @@
 """Regression cases derived from the October 24 architecture audit."""
 from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
 import json
 import hashlib
 import io
@@ -20,6 +21,20 @@ from memturn.runtime.service import Runtime
 from tests.fixtures.environment import ToyEnvironment, ToyPolicy
 from memturn.tokens import OfflineCounter
 from tests.test_core import episode
+
+
+class RecordingLearner:
+    def __init__(self):
+        self.parents, self.retained = [], []
+
+    def train(self, examples, parent, *, histories, memory_context=()):
+        self.parents.append(parent)
+        return Artifact(f'v{len(self.parents)}', 'fixture', 'test', parent, {})
+
+    def prepare(self, artifact): pass
+
+    def retain(self, versions):
+        self.retained.append(set(versions))
 
 
 class ArchitectureAuditTests(unittest.TestCase):
@@ -233,23 +248,115 @@ class ArchitectureAuditTests(unittest.TestCase):
         self.assertEqual(self.store.model_version,'trained')
         self.assertEqual([m.ref for m in self.store.memories()],[raw.ref])
 
-    def test_retired_version_prevents_next_training_job(self):
+    def test_old_readers_share_a_version_slot_and_allow_training(self):
         self.add('a'); self.add('b')
         memory = self.summary()
         self.store.replace_region(self.store.memories(),(memory,),'regular')
-        class Learner:
-            calls=0
-            def train(self, examples, parent, *, histories, memory_context=()):
-                self.calls+=1
-                raise AssertionError('must wait for old task')
-            def retain(self,*args): pass
-        learner = Learner()
+        learner = RecordingLearner()
+        runtime = self.runtime_for(learner=learner)
+        with self.store.session() as old, self.store.session() as same_old:
+            self.store.publish(memory, Artifact('current','fixture','test','base',{}), retire=False)
+            with self.store.session() as current:
+                runtime._train('available',memory)
+                self.assertEqual((old.model_version, same_old.model_version, current.model_version),
+                                 ('base', 'base', 'current'))
+                self.assertIn(memory, old.memories)
+        self.assertEqual(learner.parents, ['current'])
+        self.assertEqual(self.store.model_version, 'v1')
+        self.assertEqual(self.store.memories(), ())
+
+    def test_full_version_capacity_waits_until_a_reader_releases(self):
+        self.add('a'); self.add('b')
+        memory = self.summary()
+        self.store.replace_region(self.store.memories(),(memory,),'regular')
+        learner = RecordingLearner()
         runtime = self.runtime_for(learner=learner)
         with self.store.session():
-            # Model publication is simulated without retiring this candidate.
-            with self.store.transaction(): self.store._set('model_version','current')
+            self.store.publish(memory, Artifact('current1','fixture','test','base',{}), retire=False)
+            with self.store.session():
+                self.store.publish(memory, Artifact('current2','fixture','test','current1',{}), retire=False)
+                runtime._train('waiting',memory)
+                state = json.loads(self.store.db.execute("SELECT payload FROM jobs WHERE id='waiting'").fetchone()[0])
+                self.assertEqual(state['reason'], 'adapter_version_limit')
+                self.assertEqual(learner.parents, [])
+                self.assertEqual(self.store.memories(), (memory,))
+                with self.assertRaises(BudgetExceeded):
+                    self.store.publish(memory, Artifact('overflow','fixture','test','current2',{}))
+                self.assertEqual(self.store.model_version, 'current2')
+            # The base reader remains, but releasing current1 makes one slot available.
             runtime._train('waiting',memory)
-        self.assertEqual(learner.calls,0)
+        self.assertEqual(learner.parents, ['current2'])
+        self.assertEqual(self.store.model_version, 'v1')
+        self.assertEqual(self.store.memories(), ())
+
+    def test_serial_tasks_allow_async_updates_while_old_task_is_running(self):
+        self.store.config = replace(self.store.config, max_sessions=1, max_pending_jobs=8)
+        training_started, release_training = threading.Event(), threading.Event()
+        task_started, release_task = threading.Event(), threading.Event()
+        active_counts, task_versions = [], []
+
+        class SlowFirstLearner(RecordingLearner):
+            def train(self, examples, parent, *, histories, memory_context=()):
+                if not self.parents:
+                    training_started.set()
+                    if not release_training.wait(10):
+                        raise RuntimeError('test training gate timed out')
+                return super().train(examples, parent, histories=histories, memory_context=memory_context)
+
+        class SlowTask(ToyPolicy):
+            def act(self, observation, memories, model_version='base', history=()):
+                task_versions.append(model_version)
+                task_started.set()
+                if not release_task.wait(10):
+                    raise RuntimeError('test task gate timed out')
+                return super().act(observation, memories, model_version, history)
+
+        learner = SlowFirstLearner()
+        runtime = self.runtime_for(learner=learner)
+
+        class MeasuredEnvironment(ToyEnvironment):
+            def reset(self, task):
+                active_counts.append(runtime.active_tasks)
+                return super().reset(task)
+
+        def run_serial_tasks():
+            results = []
+            for number in range(1, 11):
+                # The first batch supplies two eligible summaries; USE trains one.
+                family = 'api' if number <= 2 else 'vault'
+                policy = SlowTask() if number == 9 else ToyPolicy()
+                results.append(runtime.run_task(Task(f'serial{number}', family, 'v1'),
+                                                MeasuredEnvironment(), policy))
+                if number < 4:
+                    runtime.drain()
+                elif number == 4 and not training_started.wait(10):
+                    raise RuntimeError('first USE did not start')
+            return results
+
+        with ThreadPoolExecutor(max_workers=1) as foreground:
+            future = foreground.submit(run_serial_tasks)
+            try:
+                self.assertTrue(task_started.wait(10))
+                self.assertEqual(self.store.stats()['completed'], 8)
+                self.assertEqual(self.store.model_version, 'base')
+                release_training.set()
+                # Drain tasks 5--8 and the next due USE while task 9 keeps base.
+                runtime.drain()
+                self.assertEqual(learner.parents, ['base', 'v1'])
+                self.assertEqual(self.store.model_version, 'v2')
+                self.assertEqual(runtime.active_tasks, 1)
+                self.assertEqual({v.model_version for v, _ in self.store.views.values()}, {'base'})
+                self.assertIn({'base', 'v2'}, learner.retained)
+            finally:
+                release_training.set()
+                release_task.set()
+            results = future.result(timeout=10)
+        runtime.drain()
+        self.assertEqual(active_counts, [1] * 10)
+        self.assertTrue(all(result.success for result in results))
+        self.assertEqual([result.model_version for result in results], ['base'] * 9 + ['v2'])
+        self.assertEqual(set(task_versions), {'base'})
+        self.assertEqual(runtime.errors, [])
 
     def test_audit_sink_failure_cannot_turn_committed_task_into_exception(self):
         runtime = self.runtime_for()
