@@ -93,7 +93,7 @@ class MaterialRecoveryTests(unittest.TestCase):
         self.store.replace_region(self.store.memories(), (recovered,), 'regular')
         self.assertEqual(self.store.memories(), (recovered,))
 
-    def test_shared_sample_cap_keeps_prefix_and_external_summaries(self):
+    def test_shared_sample_cap_keeps_required_pair_and_external_summaries(self):
         self.store.config = replace(self.store.config, max_examples_per_job=2)
         good = self.decode()
         ep = self.store.episode('b')
@@ -109,6 +109,82 @@ class MaterialRecoveryTests(unittest.TestCase):
         self.assertEqual(second.content, other.content)
         self.assertEqual(second.examples, ())
         self.assertEqual(sum(e['over_budget'] for e in self.events), 3)
+
+    def _budgeted_material_reaches_learner(self, mode, examples, cap, expected_types):
+        self.store.config = replace(self.store.config, training_material=mode, max_examples_per_job=cap)
+        memory = self.decode(dict(self.value, examples=examples))
+        calls = []
+        class Operator:
+            def consolidate(self, *args): return (memory,)
+        class Learner:
+            def train(self, examples, parent_version, *, histories, memory_context=()):
+                calls.append(examples)
+                return Artifact('budgeted', 'fixture', 'test-only', parent_version, {})
+            def prepare(self, artifact): pass
+            def retain(self, versions): pass
+        self.runtime = Runtime(self.store, None, Operator(), self.validator, Learner(),
+                               audit=self.events.append)
+        self.runtime.regular_maintenance()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual([e.example_type for e in calls[0]], expected_types)
+        self.assertLessEqual(len(calls[0]), cap)
+        self.assertEqual(self.store.model_version, 'budgeted')
+        self.assertNotIn(memory.ref, {m.ref for m in self.store.memories()})
+
+    def test_original_mixed_budget_probe_reaches_training(self):
+        qa, decision = self.value['examples']
+        second_qa = dict(qa, question='When does the strategy apply?')
+        self._budgeted_material_reaches_learner('mixed', [qa, second_qa, decision], 2,
+                                               ['rule_qa', 'decision'])
+
+    def test_original_qa_only_budget_probe_reaches_training(self):
+        qa, decision = self.value['examples']
+        self._budgeted_material_reaches_learner('qa_only', [decision, qa], 1, ['rule_qa'])
+        filtered = next(e for e in self.events if e['event'] == 'training_material_filtered')
+        self.assertEqual((filtered['unused_type'], filtered['over_budget']), (1, 0))
+
+    def test_decision_only_discards_questions_before_applying_budget(self):
+        qa, decision = self.value['examples']
+        self._budgeted_material_reaches_learner('decision_only', [qa, decision], 1, ['decision'])
+
+    def _two_summaries(self):
+        first = self.decode()
+        second = replace(first, id='second', content='Another rule', examples=())
+        second = replace(second, examples=(rule_question(second), bind_example(first.examples[1], second)))
+        extra = replace(first.examples[0], prompt='When does this rule apply?')
+        first = replace(first, examples=(first.examples[0], extra, first.examples[1]))
+        return first, second
+
+    def test_shared_budget_reserves_required_types_before_extra_samples(self):
+        self.store.config = replace(self.store.config, max_examples_per_job=4)
+        first, second = self.propose(self._two_summaries())
+        self.assertEqual([len(m.examples) for m in (first, second)], [2, 2])
+        self.assertTrue(all(self.validator.trainable(m) for m in (first, second)))
+        self.assertEqual(sum(e['over_budget'] for e in self.events), 1)
+
+    def test_spare_budget_keeps_extra_questions_and_original_order(self):
+        self.store.config = replace(self.store.config, max_examples_per_job=5)
+        originals = self._two_summaries()
+        kept = self.propose(originals)
+        self.assertEqual([m.examples for m in kept], [m.examples for m in originals])
+        self.assertEqual(self.events, [])
+
+    def test_incomplete_material_does_not_displace_a_later_complete_pair(self):
+        self.store.config = replace(self.store.config, max_examples_per_job=2)
+        first, second = self._two_summaries()
+        first = replace(first, examples=first.examples[:2])
+        kept_first, kept_second = self.propose((first, second))
+        self.assertEqual(kept_first.content, first.content)
+        self.assertEqual(kept_first.examples, ())
+        self.assertTrue(self.validator.trainable(kept_second))
+
+    def test_budget_below_required_pair_preserves_partial_external_material(self):
+        self.store.config = replace(self.store.config, max_examples_per_job=1)
+        kept, = self.propose((self.decode(),))
+        self.assertEqual(len(kept.examples), 1)
+        self.assertFalse(self.validator.trainable(kept))
+        self.store.replace_region(self.store.memories(), (kept,), 'regular')
+        self.assertEqual(self.store.memories(), (kept,))
 
     def test_chat_consolidator_uses_same_runtime_sample_cap(self):
         self.store.config = replace(self.store.config, max_examples_per_job=2)

@@ -36,6 +36,34 @@ def unique_examples(examples):
     return tuple(kept)
 
 
+def pack_training_examples(groups, material, limit):
+    """Reserve required types across summaries, then fill spare slots in order.
+
+    Groups contain valid, deduplicated examples for the selected training mode.
+    """
+    required = {'mixed': ('rule_qa', 'decision'), 'qa_only': ('rule_qa',),
+                'decision_only': ('decision',)}[material]
+    chosen = [set() for _ in groups]
+    remaining = limit
+    for examples, indices in zip(groups, chosen):
+        first = {}
+        for index, example in enumerate(examples):
+            if example.example_type in required:
+                first.setdefault(example.example_type, index)
+        if len(first) == len(required) and remaining >= len(required):
+            indices.update(first.values())
+            remaining -= len(required)
+    for examples, indices in zip(groups, chosen):
+        for index in range(len(examples)):
+            if not remaining:
+                break
+            if index not in indices:
+                indices.add(index)
+                remaining -= 1
+    return tuple(tuple(example for index, example in enumerate(examples) if index in indices)
+                 for examples, indices in zip(groups, chosen))
+
+
 def bind_example(example, memory):
     return replace(example, memory_ref=memory.ref,
                    covered_content_refs=(memory.ref + '#content',),

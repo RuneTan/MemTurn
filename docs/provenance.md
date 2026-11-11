@@ -31,7 +31,7 @@ By default, USE ranks learning candidates by this count, and DISUSE uses it to p
 
 The decoder copies the source observation and action for decision demonstrations. The validator checks the bound memory version, source scope, and fidelity to the original record. After deduplication, default mixed training requires at least one valid rule QA and at least one valid decision demonstration. The `qa_only` variant uses all retained valid rule QAs and requires at least one; both modes keep the existing sample and training budgets.
 
-Material is processed sample by sample: retain valid samples, deduplicate identical examples and repeated content references, then apply the count limit in generation order. Summaries with incomplete material remain available as external memory. If a question contains its answer text, a `qa_text_overlap` event flags it for review; text overlap alone keeps the sample eligible.
+Material is checked and deduplicated, then filtered to the types used by the training mode. Within the shared sample limit, summaries receive their minimum required types in output order as budget permits: one QA and one decision in mixed mode, or one example of the selected type in a single-type variant. Remaining slots take additional samples in output order; retained samples keep their original order. For example, a limit of two keeps a QA and a decision from `[QA, QA, decision]`. Summaries with incomplete material remain available as external memory. If a question contains its answer text, a `qa_text_overlap` event flags it for review; text overlap alone keeps the sample eligible.
 
 ## What the model reads during training
 

@@ -6,7 +6,7 @@ import time
 import uuid
 
 from ..contracts import Artifact, Episode, ExposedMemory, RetrievalEvent, RetrievalResult, Step, dumps
-from ..learning.materials import unique_examples
+from ..learning.materials import pack_training_examples, unique_examples
 from ..memory.policies import cold_region, pack_half, select_one
 from ..memory.retrieval import Retriever
 from ..memory.store import BudgetExceeded, StaleSnapshot
@@ -320,23 +320,28 @@ class Runtime:
             raise ValueError("invalid or empty consolidation proposal")
         if sum(self.counter.count(m.payload) for m in outputs) > self.config.output_token_cap:
             raise BudgetExceeded("consolidation body output budget exceeded")
-        kept, remaining = [], self.config.max_examples_per_job
+        materials = []
         for memory in outputs:
             valid = tuple(e for e in memory.examples if self.validator.valid_example(e, memory))
             distinct = unique_examples(valid)
-            examples = distinct[:remaining]
+            filtered = self.validator.training_examples(replace(memory, examples=distinct))
+            materials.append((valid, distinct, filtered))
+        packed = pack_training_examples([item[2] for item in materials],
+                                        self.config.training_material, self.config.max_examples_per_job)
+        kept = []
+        for memory, (valid, distinct, filtered), examples in zip(outputs, materials, packed):
             if len(examples) != len(memory.examples):
                 self.event('training_material_filtered', memory_ref=memory.ref,
                            invalid=len(memory.examples) - len(valid),
                            duplicates=len(valid) - len(distinct),
-                           over_budget=len(distinct) - len(examples))
+                           unused_type=len(distinct) - len(filtered),
+                           over_budget=len(filtered) - len(examples))
             compact = lambda text: ' '.join(text.casefold().split())
             overlap = sum(e.example_type == 'rule_qa' and compact(e.target) in compact(e.prompt)
                           for e in examples)
             if overlap:
                 self.event('qa_text_overlap', memory_ref=memory.ref, count=overlap)
             kept.append(replace(memory, examples=examples))
-            remaining -= len(examples)
         # Keep partial material; candidate selection checks the required mix later.
         return tuple(kept)
 
