@@ -14,7 +14,7 @@ USE first commits the new summaries in place of the selected region, then choose
 
 The Consolidator's read-only inspection and region-replacement workflow draws on [Auto-Dreamer](https://arxiv.org/html/2605.20616v1). Our [`ChatConsolidator`](../src/memturn/models/agents.py) uses a fixed prompt and bounded tool calls, with the model supplied through the application. Auto-Dreamer trains its consolidator with GRPO. MemTurn extends the workflow to prepare rule-question and original-decision supervision alongside summaries; the surrounding policy selects the learning target and manages retirement.
 
-The external-memory-to-parameter lifecycle draws on [Dual-Layer Agentic Memory](https://arxiv.org/html/2608.22215v2#S3.SS4). MemTurn studies a specific selection, supervision, and retirement policy in continuing interactive tasks. Dual-Layer serves as a methodological reference; the planned comparisons below address external-memory alternatives and MemTurn's own design choices.
+[Dual-Layer Agentic Memory](https://arxiv.org/html/2608.22215v2#S3.SS4) couples parametric consolidation with external-memory removal after retrieval-free checks. MemTurn studies rules and recorded decisions in continuing interactive tasks, with retirement tied to model publication. The experiments below compare external-memory alternatives and MemTurn's design choices.
 
 ## Three linked experiments
 

@@ -14,7 +14,7 @@
 
 Consolidator 查看只读记忆及其来源、再生成新摘要替换原区域的流程，借鉴了 [Auto-Dreamer](https://arxiv.org/html/2605.20616v1)。当前 [`ChatConsolidator`](../src/memturn/models/agents.py) 使用固定提示词和有次数上限的工具调用，具体模型由应用接入；Auto-Dreamer 则通过 GRPO 训练整理策略。MemTurn 在这一流程上增加规则问答和原始决策材料，外围策略负责选择学习目标与管理记忆退出。
 
-外部记忆内化到参数中的思路借鉴了 [Dual-Layer Agentic Memory](https://arxiv.org/html/2608.22215v2#S3.SS4)。MemTurn 研究持续交互任务中具体的选择、训练材料和退出策略。Dual-Layer 在这里作为方法来源；下面的实验比较外部记忆方案，并检查 MemTurn 内部各项设计的作用。
+[Dual-Layer Agentic Memory](https://arxiv.org/html/2608.22215v2#S3.SS4) 同样结合参数内化与外部记忆退出，依据无检索测试决定是否移除事实。MemTurn 研究持续交互任务中的规则与决策经验，采用随模型发布退出所选记忆的策略。下面的实验比较外部记忆方案及 MemTurn 的内部设计。
 
 ## 三个相互衔接的实验
 

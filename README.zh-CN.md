@@ -25,7 +25,7 @@ Agent 连续执行任务时，会积累越来越多的经历。哪些值得继�
 
 | 想了解什么 | 阅读入口 |
 | --- | --- |
-| 研究问题、方法来源与实验安排 | [研究思路](docs/research.zh-CN.md) |
+| 研究问题、相关工作与实验安排 | [研究思路](docs/research.zh-CN.md) |
 | 用进、废退怎样配合 | [架构概况](docs/architecture.zh-CN.md) |
 | 各组件接收什么、输出什么 | [组件与接口](docs/components.zh-CN.md) |
 | 来源怎样记录，训练材料怎样构造 | [来源与训练材料](docs/provenance.zh-CN.md) |
